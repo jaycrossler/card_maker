@@ -76,6 +76,13 @@ function show_thumbnails() {
     return html;
 }
 
+//Temporary Randomness function
+var rand_seed = 1;
+function random() {
+    var x = Math.sin(rand_seed++) * 10000;
+    return x - Math.floor(x);
+}
+
 
 //=================================================
 init();
@@ -83,7 +90,7 @@ init();
 app.get('/', function (req, res) {
     //TODO: Initially show only a few cards, then all
     //TODO: Have a way to show alternate titles
-    //TODO: Show keywords if they exist on cards
+    //TODO: Pull real keywords instead of random ones
 
     res.write(show_thumbnails());
     res.end();
@@ -109,6 +116,24 @@ app.get('/card/:cardId', function (req, res) {
     var num_text = this_card_data['gsx$result']['$t'];
     var title_text = this_card_data['gsx$text']['$t'];
 
+    rand_seed = card_id;
+    var items = 'Artillery Scouts Stealth Airpower Cyber Logistics Leader Weather Terrain Tunnel Sabotage Charge Fuel Morale'.split(' ');
+    var keyword_1 = items[Math.floor(random()*items.length)];
+    var keyword_2 = items[Math.floor(random()*items.length)];
+    var keyword_3 = items[Math.floor(random()*items.length)];
+    var keyword_4 = items[Math.floor(random()*items.length)];
+    if (random() < .4) {
+        keyword_4 = keyword_2;
+
+        if (random() < .4) {
+            keyword_3 = keyword_1;
+
+            if (random() < .4) {
+                keyword_2 = keyword_1;
+                keyword_4 = keyword_1;
+            }
+        }
+    }
 
 
     //Create the canvas
@@ -151,7 +176,7 @@ app.get('/card/:cardId', function (req, res) {
 
 
     //TODO: Make these a function and have pos/fontsize differ by content
-    var height_mod = -10;
+    var height_mod = -30;
     var diamond_1 = new fabric.Rect({
         left: card_width /2,
         top: (card_height /2) - 205 + height_mod,
@@ -171,6 +196,19 @@ app.get('/card/:cardId', function (req, res) {
         , fontFamily: 'Impact'
     });
     canvas_fabric.add(text_1);
+    var callout_1 = new fabric.Text(keyword_1, {
+        left: (card_width /2) - 180
+        , top: (card_height /2) - 90 + height_mod
+        , originX : 'center', originY: 'center'
+        , angle: -45
+        , fill: "white"
+        , fontSize: 80
+        , fontWeight: 'bold'
+        , fontFamily: 'Impact'
+    });
+    canvas_fabric.add(callout_1);
+
+
 
 
     var diamond_2 = new fabric.Rect({
@@ -192,6 +230,17 @@ app.get('/card/:cardId', function (req, res) {
         , fontFamily: 'Impact'
     });
     canvas_fabric.add(text_2);
+    var callout_2 = new fabric.Text(keyword_2, {
+        left: (card_width /2) + 180
+        , top: (card_height /2) - 90 + height_mod
+        , angle: 45
+        , originX : 'center', originY: 'center'
+        , fill: "white"
+        , fontSize: 80
+        , fontWeight: 'bold'
+        , fontFamily: 'Impact'
+    });
+    canvas_fabric.add(callout_2);
 
 
     var diamond_3 = new fabric.Rect({
@@ -213,7 +262,17 @@ app.get('/card/:cardId', function (req, res) {
         , fontFamily: 'Impact'
     });
     canvas_fabric.add(text_3);
-
+    var callout_3 = new fabric.Text(keyword_3, {
+        left: (card_width /2) + 170
+        , top: (card_height /2) + 260 + height_mod
+        , angle: 135
+        , originX : 'center', originY: 'center'
+        , fill: "white"
+        , fontSize: 80
+        , fontWeight: 'bold'
+        , fontFamily: 'Impact'
+    });
+    canvas_fabric.add(callout_3);
 
     var diamond_4 = new fabric.Rect({
         left: card_width /2,
@@ -234,13 +293,24 @@ app.get('/card/:cardId', function (req, res) {
         , fontFamily: 'Impact'
     });
     canvas_fabric.add(text_4);
+    var callout_4 = new fabric.Text(keyword_4, {
+        left: (card_width /2) - 170
+        , top: (card_height /2) + 260 + height_mod
+        , angle: 225
+        , originX : 'center', originY: 'center'
+        , fill: "white"
+        , fontSize: 80
+        , fontWeight: 'bold'
+        , fontFamily: 'Impact'
+    });
+    canvas_fabric.add(callout_4);
 
     //Small tile of total score in bottom right
     var rect_small = new fabric.Rect({
-        width: 200
-        , height: 300
-        , left: card_width - 200 - border_1
-        , top: card_height - 300 - border_1
+        width: 220
+        , height: 220
+        , left: card_width - 220 - border_1
+        , top: card_height - 220 - border_1
         , rx: border_1_round
         , ry: border_1_round
         , strokeWidth: 4
@@ -249,8 +319,8 @@ app.get('/card/:cardId', function (req, res) {
 
     if (num_text >= 0) num_text = "+" + num_text;
     var text_total = new fabric.Text(num_text, {
-        left: card_width - border_1 - (num_text < 0 ? 170 : 195)
-        , top: card_height - border_1 - 240
+        left: card_width - border_1 - 180 - (num_text < 0 ? 0 : 25)
+        , top: card_height - border_1 - 195
         , fill: (num_text < 0) ? "red" : "yellow"
         , textAlign: 'center'
         , fontSize: 180
@@ -278,4 +348,3 @@ app.get('/card/:cardId', function (req, res) {
 app.listen(3000, function () {
     console.log('Example app listening on port 3000!');
 });
-
