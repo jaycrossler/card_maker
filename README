@@ -1,0 +1,7 @@
+
+## Installing
+
+xcode-select --install
+npm install node-gyp -g
+brew install giflib cairo libjpeg giflib pixman
+npm install canvas
