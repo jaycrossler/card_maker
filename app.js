@@ -69,6 +69,8 @@ function show_thumbnails() {
     for (var card_id=0; card_id<card_count; card_id++) {
         html += '<a href="/card/' + card_id + '"><img src="/card/' + card_id + '" class="card"/></a>';
     }
+
+    html += '<br/><a href="/flush">Reload card data from Google Sheets</a>';
     html += '</body></html>';
 
     return html;
@@ -79,13 +81,24 @@ function show_thumbnails() {
 init();
 //=================================================
 app.get('/', function (req, res) {
+    //TODO: Initially show only a few cards, then all
+    //TODO: Have a way to show alternate titles
+    //TODO: Show keywords if they exist on cards
+
     res.write(show_thumbnails());
     res.end();
 });
 
+//Re-load all data
+app.get('/flush', function (req, res) {
+    init();
+    res.redirect("/");
+});
+
+
 //=================================================
 app.get('/card/:cardId', function (req, res) {
-    var canvas = new Canvas(card_width, card_height);
+    //var canvas = new Canvas(card_width, card_height);
 
     var card_id = req.params.cardId;
 
@@ -222,7 +235,7 @@ app.get('/card/:cardId', function (req, res) {
     });
     canvas_fabric.add(text_4);
 
-
+    //Small tile of total score in bottom right
     var rect_small = new fabric.Rect({
         width: 200
         , height: 300
@@ -233,24 +246,32 @@ app.get('/card/:cardId', function (req, res) {
         , strokeWidth: 4
         , stroke: 'yellow' });
     canvas_fabric.add(rect_small);
+
+    if (num_text >= 0) num_text = "+" + num_text;
     var text_total = new fabric.Text(num_text, {
-        left: card_width - border_1 - (num_text < 0 ? 180 : 150)
-        , top: card_height - border_1 - 250
+        left: card_width - border_1 - (num_text < 0 ? 170 : 195)
+        , top: card_height - border_1 - 240
         , fill: (num_text < 0) ? "red" : "yellow"
         , textAlign: 'center'
-        , fontSize: 200
+        , fontSize: 180
         , fontWeight: 'bold'
         , fontFamily: 'Impact'
     });
     canvas_fabric.add(text_total);
 
 
-    //Export as PNG
+    //Export as PNG to browser
     var stream = canvas_fabric.createPNGStream();
     res.setHeader('Content-Type', 'image/png');
     stream.pipe(res);
 
-    //TODO: Save PNG to directory
+
+    //Save PNG to directory of cards
+    var path = __dirname + '/images/cards/card_' + card_id + '.png';
+    var out = fs.createWriteStream(path);
+    stream.on('data', function(chunk) {
+        out.write(chunk);
+    });
 });
 
 //=================================================
