@@ -1,10 +1,10 @@
-var express = require('express'),
-    request = require('request'),
-    //_ = require('underscore'),
-    jsonfile = require('jsonfile'),
-    fs = require('fs'),
-    fabric = require('fabric').fabric,
-    Canvas = require('canvas');
+var express = require('express')
+    , request = require('request')
+//, _ = require('underscore')
+//    , Canvas = require('canvas')
+    , jsonfile = require('jsonfile')
+    , fs = require('fs')
+    , fabric = require('fabric').fabric;
 
 var app = express();
 var card_width = 825,
@@ -60,7 +60,7 @@ function show_thumbnails() {
 
     var image_w = card_width * thumbnail_scale;
     var image_h = card_height * thumbnail_scale;
-    html = '';
+    var html = '';
 
     html += '<html><head><title>Limits Of Virtue Cards</title>';
     html += '<style>.card {border:1px solid lightblue; margin:4px;width:'+image_w+'px;height:'+image_h+'px;}</style>';
@@ -306,11 +306,12 @@ app.get('/card/:cardId', function (req, res) {
     canvas_fabric.add(callout_4);
 
     //Small tile of total score in bottom right
+    var tile_width = 220;
     var rect_small = new fabric.Rect({
-        width: 220
-        , height: 220
-        , left: card_width - 220 - border_1
-        , top: card_height - 220 - border_1
+        width: tile_width
+        , height: tile_width
+        , left: card_width - tile_width - border_1
+        , top: card_height - tile_width - border_1
         , rx: border_1_round
         , ry: border_1_round
         , strokeWidth: 4
@@ -319,11 +320,11 @@ app.get('/card/:cardId', function (req, res) {
 
     if (num_text >= 0) num_text = "+" + num_text;
     var text_total = new fabric.Text(num_text, {
-        left: card_width - border_1 - 180 - (num_text < 0 ? 0 : 25)
-        , top: card_height - border_1 - 195
+        left: card_width - border_1 - (tile_width * .8) - (num_text < 0 ? 0 : 25)
+        , top: card_height - border_1 - (tile_width * .88)
         , fill: (num_text < 0) ? "red" : "yellow"
         , textAlign: 'center'
-        , fontSize: 180
+        , fontSize: (tile_width * .8)
         , fontWeight: 'bold'
         , fontFamily: 'Impact'
     });
