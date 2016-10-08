@@ -1,6 +1,7 @@
 var express = require('express')
     , request = require('request')
     , jsonfile = require('jsonfile')
+    , _ = require('underscore')
     , fs = require('fs')
     , card_drawing = require('./scripts/card_drawing')
     , fabric = require('fabric').fabric;
@@ -14,6 +15,7 @@ var sheet_url = "https://spreadsheets.google.com/feeds/list/1r2bJjGhoaIfm8iEfsCH
 
 function init(){
 
+    //TODO: Load multiple background images
     fabric.util.loadImage(bg_src, function(img) {
         bg_image = new fabric.Image(img);
 
@@ -56,19 +58,34 @@ function init(){
 init();
 //=================================================
 app.get('/', function (req, res) {
-    //TODO: Initially show only a few cards, then all
     //TODO: Have a way to show alternate titles
     //TODO: Pull real keywords instead of random ones
+    //TODO: Pull real flavor text instead of random ones
+    //TODO: Have a database on styles
+    //TODO: Allow user to design their own style
+    //TODO: Decide if style should be an int or a guid
 
-    var h = "<html><head><title>The Size of Your Deck!</title></head><body>";
+    var styles = [
+        {id: 1, name: 'Aeon'},
+        {id: 2, name: 'Garden of Musk'},
+        {id: 3, name: 'Swords and Suckers'},
+        {id: 4, name: 'Ye Olde Horror Shacke'},
+        {id: 5, name: 'Build your own decks!'}
+    ];
+
+    var h = "<html><head><title>The Size of Your Deck</title></head><body>";
     h += "<h1>The Size of your Deck!</h1>";
-    h += "<li><a href='/cards/images/big'>All cards as images (full sized)</a></li>";
-    h += "<li><a href='/cards/images/small'>All cards as images (small)</a></li>";
-    h += "<li><a href='/cards/pdf/big'>All cards as PDF sheet (small)</a></li>";
-    h += "<li><a href='/cards/pdf/small'>All cards as PDF sheet (small)</a></li>";
+
+    _.each(styles, function(style){
+        h += "<h2>" + style.name + "</h2>";
+        h += "[<a href='/cards/" + style.id + "/images/big'>Big Deck (images)</a>] ";
+        h += "[<a href='/cards/" + style.id + "/images/small'>Small Deck (images)</a>] ";
+        h += "[<a href='/cards/" + style.id + "/pdf/big'>Big Deck (pdfs)</a>] ";
+        h += "[<a href='/cards/" + style.id + "/pdf/small'>Small Deck (pdfs)</a>]<br/>";
+        h += card_drawing.show_thumbnails({size:'small',all:false, style:style});
+    });
+
     h += "<li><a href='/flush'>Reload card data from Google Sheets</a></li>";
-    h += "<br/>Here are a few cards:<br/>";
-    h += card_drawing.show_thumbnails({size:'small',all:false});
     h += "</body></html>";
 
     res.write(h);
@@ -76,13 +93,23 @@ app.get('/', function (req, res) {
 });
 
 
-app.get('/cards/images/big', function (req, res) {
-    res.write(card_drawing.show_thumbnails({size:'big',all:true}));
+app.get('/cards/:style/images/big', function (req, res) {
+    res.write(card_drawing.show_thumbnails({size:'big',all:true,style:req.params.style}));
     res.end();
 });
 
-app.get('/cards/images/small', function (req, res) {
-    res.write(card_drawing.show_thumbnails({size:'small',all:true}));
+app.get('/cards/:style/images/small', function (req, res) {
+    res.write(card_drawing.show_thumbnails({size:'small',all:true,style:req.params.style}));
+    res.end();
+});
+
+app.get('/pdf/:style/images/big', function (req, res) {
+    res.write(card_drawing.show_thumbnails({size:'big',all:true,style:req.params.style}));
+    res.end();
+});
+
+app.get('/pdf/:style/images/small', function (req, res) {
+    res.write(card_drawing.show_thumbnails({size:'small',all:true,style:req.params.style}));
     res.end();
 });
 
@@ -95,10 +122,13 @@ app.get('/flush', function (req, res) {
 
 
 //=================================================
-app.get('/card/:cardId', function (req, res) {
+app.get('/card/:size/:style/:cardId', function (req, res) {
     //var canvas = new Canvas(card_width, card_height);
 
     var card_id = req.params.cardId;
+
+    var size = (req.params.size == 'big') ? 'big' : 'small';
+    var style = parseInt(req.params.style);
 
     //Get Card variables
     var cards = card_data.feed.entry;
@@ -128,7 +158,8 @@ app.get('/card/:cardId', function (req, res) {
     }
 
     var options = {
-        design_style : 'black_hex',
+        style : style,
+        size: size,
         bg_image : bg_image,
         card_id: card_id,
         this_card_data: this_card_data,
@@ -145,6 +176,8 @@ app.get('/card/:cardId', function (req, res) {
     stream.pipe(res);
 
 
+    //TODO: Add Size and Style to Dir list
+    //TODO: Don't regenerate cards if already exist - pull from saved
     //Save PNG to directory of cards
     var path = __dirname + '/images/cards/card_' + card_id + '.png'; //TODO: save based on build
     var out = fs.createWriteStream(path);
@@ -155,7 +188,7 @@ app.get('/card/:cardId', function (req, res) {
 
 //=================================================
 app.listen(3000, function () {
-    console.log('Example app listening on port 3000!');
+    console.log('Card Builder app listening on port 3000');
 });
 
 

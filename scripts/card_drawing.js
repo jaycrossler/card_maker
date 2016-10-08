@@ -21,6 +21,8 @@ function show_thumbnails(options) {
 
     //If options.all, show all cards, otherwise only every 9th
     var skip_count = (options && options.all) ? 1 : 9;
+    var style = parseInt(options.style) || 1;
+    var size = (options.size == 'big') ? 'big' : 'small';
 
     var image_w = card_width * thumbnail_scale;
     var image_h = card_height * thumbnail_scale;
@@ -28,7 +30,8 @@ function show_thumbnails(options) {
 
     html += '<style>.card {border:1px solid lightblue; margin:4px;width:'+image_w+'px;height:'+image_h+'px;}</style>';
     for (var card_id=0; card_id<card_count; card_id+=skip_count) {
-        html += '<a href="/card/' + card_id + '"><img src="/card/' + card_id + '" class="card"/></a>';
+        var url = '/card/' + size + '/' + style + '/'+ card_id;
+        html += '<a href="' + url + '"><img src="' + url + '" class="card"/></a>';
     }
 
     return html;
