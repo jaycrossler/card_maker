@@ -6,6 +6,16 @@ var express = require('express')
     , card_drawing = require('./scripts/card_drawing')
     , fabric = require('fabric').fabric;
 
+var card_styles = [
+    {id: 1, name: 'Aeon'},
+    {id: 2, name: 'Garden of Musk'},
+    {id: 3, name: 'Swords and Suckers'},
+    {id: 4, name: 'Ye Olde Horror Shacke'},
+    {id: 5, name: 'Build your own decks!'}
+];
+
+
+
 var app = express();
 var sheet_url = "https://spreadsheets.google.com/feeds/list/1r2bJjGhoaIfm8iEfsCHKiu3oSOznx5H2HFhwnWwYfjs/od6/public/values?alt=json",
     card_data = null,
@@ -61,28 +71,22 @@ app.get('/', function (req, res) {
     //TODO: Have a way to show alternate titles
     //TODO: Pull real keywords instead of random ones
     //TODO: Pull real flavor text instead of random ones
-    //TODO: Have a database on styles
+    //TODO: Have a database of styles
     //TODO: Allow user to design their own style
     //TODO: Decide if style should be an int or a guid
 
-    var styles = [
-        {id: 1, name: 'Aeon'},
-        {id: 2, name: 'Garden of Musk'},
-        {id: 3, name: 'Swords and Suckers'},
-        {id: 4, name: 'Ye Olde Horror Shacke'},
-        {id: 5, name: 'Build your own decks!'}
-    ];
 
     var h = "<html><head><title>The Size of Your Deck</title></head><body>";
+    h += '<style>body {background-color: lightblue;font-family: Verdana}</style>';
     h += "<h1>The Size of your Deck!</h1>";
 
-    _.each(styles, function(style){
+    _.each(card_styles, function(style){
         h += "<h2>" + style.name + "</h2>";
         h += "[<a href='/cards/" + style.id + "/images/big'>Big Deck (images)</a>] ";
         h += "[<a href='/cards/" + style.id + "/images/small'>Small Deck (images)</a>] ";
         h += "[<a href='/cards/" + style.id + "/pdf/big'>Big Deck (pdfs)</a>] ";
         h += "[<a href='/cards/" + style.id + "/pdf/small'>Small Deck (pdfs)</a>]<br/>";
-        h += card_drawing.show_thumbnails({size:'small',all:false, style:style});
+        h += card_drawing.show_thumbnails({size:'big',all:false, style:style});
     });
 
     h += "<li><a href='/flush'>Reload card data from Google Sheets</a></li>";
@@ -93,23 +97,13 @@ app.get('/', function (req, res) {
 });
 
 
-app.get('/cards/:style/images/big', function (req, res) {
-    res.write(card_drawing.show_thumbnails({size:'big',all:true,style:req.params.style}));
+app.get('/cards/:style/images/:size', function (req, res) {
+    res.write(card_drawing.show_thumbnails({size:req.params.size, all:true, style:req.params.style}));
     res.end();
 });
 
-app.get('/cards/:style/images/small', function (req, res) {
-    res.write(card_drawing.show_thumbnails({size:'small',all:true,style:req.params.style}));
-    res.end();
-});
-
-app.get('/pdf/:style/images/big', function (req, res) {
-    res.write(card_drawing.show_thumbnails({size:'big',all:true,style:req.params.style}));
-    res.end();
-});
-
-app.get('/pdf/:style/images/small', function (req, res) {
-    res.write(card_drawing.show_thumbnails({size:'small',all:true,style:req.params.style}));
+app.get('/pdf/:style/images/:size', function (req, res) {
+    res.write(card_drawing.show_thumbnails({size:req.params.size, all:true, style:req.params.style}));
     res.end();
 });
 
@@ -122,13 +116,25 @@ app.get('/flush', function (req, res) {
 
 
 //=================================================
-app.get('/card/:size/:style/:cardId', function (req, res) {
+app.get('/card/:size/:style/:id', function (req, res) {
     //var canvas = new Canvas(card_width, card_height);
 
-    var card_id = req.params.cardId;
-
+    var id = req.params.id;
     var size = (req.params.size == 'big') ? 'big' : 'small';
     var style = parseInt(req.params.style);
+
+    var stream = get_data_and_draw_card(id, size, style, true);
+
+    res.setHeader('Content-Type', 'image/png');
+    stream.pipe(res);
+
+    //TODO: Don't regenerate cards if already exist - pull from saved
+});
+
+function get_data_and_draw_card (card_id, card_size, card_style, save_to_disk) {
+
+    var size = (card_size == 'big') ? 'big' : 'small';
+    var style = parseInt(card_style);
 
     //Get Card variables
     var cards = card_data.feed.entry;
@@ -170,21 +176,22 @@ app.get('/card/:size/:style/:cardId', function (req, res) {
         keywords : [keyword_1, keyword_2, keyword_3, keyword_4]
     };
 
-    //Export as PNG to browser
+
+    //Construct the card's image
     var stream = card_drawing.draw_card(options);
-    res.setHeader('Content-Type', 'image/png');
-    stream.pipe(res);
 
+    if (save_to_disk) {
+        //Save PNG to directory of cards
+        var path = __dirname + '/images/cards/card_' + size + '_' + style + '_' + card_id + '.png';
+        var out = fs.createWriteStream(path);
+        stream.on('data', function(chunk) {
+            out.write(chunk);
+        });
+    }
 
-    //TODO: Add Size and Style to Dir list
-    //TODO: Don't regenerate cards if already exist - pull from saved
-    //Save PNG to directory of cards
-    var path = __dirname + '/images/cards/card_' + card_id + '.png'; //TODO: save based on build
-    var out = fs.createWriteStream(path);
-    stream.on('data', function(chunk) {
-        out.write(chunk);
-    });
-});
+    //Export as PNG to browser
+    return stream;
+}
 
 //=================================================
 app.listen(3000, function () {
