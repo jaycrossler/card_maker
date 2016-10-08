@@ -4,6 +4,7 @@ var express = require('express')
     , _ = require('underscore')
     , fs = require('fs')
     , card_drawing = require('./scripts/card_drawing')
+    , card_images_directory = __dirname + '/images/cards/'
     , fabric = require('fabric').fabric;
 
 var card_styles = [
@@ -20,6 +21,7 @@ var app = express();
 var sheet_url = "https://spreadsheets.google.com/feeds/list/1r2bJjGhoaIfm8iEfsCHKiu3oSOznx5H2HFhwnWwYfjs/od6/public/values?alt=json",
     card_data = null,
     bg_image = null,
+    image_file_list = [],
     bg_src = 'images/blue_hex_bg.png',
     cache_file = '/tmp/card_data_from_sheets.json';
 
@@ -40,28 +42,31 @@ function init(){
                     json: true
                 }, function (error, response, body) {
                     if (!error && response.statusCode === 200) {
-                        console.log('url returned data');
+                        console.log('gSheets url returned data');
 
                         jsonfile.writeFile(cache_file, body, function (err) {
                             console.error(err);
                         });
-                        console.log('written to file');
+                        console.log('Settings data from gSheets written to file');
 
                         card_data = body;
                     }
                 });
 
             } else {
-                console.log('data parsed in from file');
+                console.log('Settings data from gSheets parsed in from saved file');
                 card_data = JSON.parse(data);
             }
+        });
+
+        fs.readdir(card_images_directory, function (err, data) {
+            image_file_list = data;
+            console.log(data.length + ' images already in system');
         });
 
     });
 
 }
-
-
 
 
 //=================================================
@@ -90,6 +95,7 @@ app.get('/', function (req, res) {
     });
 
     h += "<li><a href='/flush'>Reload card data from Google Sheets</a></li>";
+    h += "<li><a href='/delete-images'>Delete all locally saved card images</a></li>";
     h += "</body></html>";
 
     res.write(h);
@@ -114,37 +120,68 @@ app.get('/flush', function (req, res) {
     res.redirect("/");
 });
 
+//Delete all images in the system
+app.get('/delete-images', function (req, res) {
+
+    _.each(image_file_list, function(file){
+
+        fs.unlink(card_images_directory + file,function(err){
+            if(err) return console.log(err);
+            console.log('File ' + file + ' deleted successfully');
+        });
+
+    });
+
+
+    init();
+    res.redirect("/");
+});
+
 
 //=================================================
 app.get('/card/:size/:style/:id', function (req, res) {
     //var canvas = new Canvas(card_width, card_height);
 
-    var id = req.params.id;
+    var id = req.params.id || 0;
     var size = (req.params.size == 'big') ? 'big' : 'small';
     var style = parseInt(req.params.style);
 
-    var stream = get_data_and_draw_card(id, size, style, true);
+    //Don't regenerate cards if already exist - pull from saved
+    var file_name = card_file_name(size, style, id, false);
+    if (_.indexOf(image_file_list, file_name) > -1) {
+        //Image file exists already, return cached file
+        fs.readFile(card_file_name(size, style, id, true), function(err, data) {
+            if (err) throw err;
+            //console.log(file_name + ' found in local file cache, sent from file');
 
-    res.setHeader('Content-Type', 'image/png');
-    stream.pipe(res);
+            res.writeHead(200, {'Content-Type': 'image/png'});
+            res.end(data);
+        });
+    } else {
+        //No image, generate it
+        var stream = get_data_and_draw_card(id, size, style);
+        //console.log(file_name + ' not found in local file cache - generating');
 
-    //TODO: Don't regenerate cards if already exist - pull from saved
+        res.setHeader('Content-Type', 'image/png');
+        stream.pipe(res);
+    }
+
 });
 
-function get_data_and_draw_card (card_id, card_size, card_style, save_to_disk) {
+function get_data_and_draw_card (id, card_size, card_style) {
 
     var size = (card_size == 'big') ? 'big' : 'small';
     var style = parseInt(card_style);
 
     //Get Card variables
     var cards = card_data.feed.entry;
-    var this_card_data = cards[card_id];
+    var this_card_data = cards[id];
     var dice_text = this_card_data['gsx$dice']['$t']; //TODO: Build some exception handling
     var num_text = this_card_data['gsx$result']['$t'];
     var title_text = this_card_data['gsx$text']['$t'];
     var story_text = "1LT Dewberry was a helicopter pilot - well liked, intelligent and popular with the ladies.  Unfortunately, none of those traits discouraged the incomming MANPAD rocket.";
 
-    rand_seed = card_id;
+    rand_seed = id;
     var items = 'Artillery Scouts Stealth Airpower Cyber Logistics Leader Weather Terrain Tunnel Sabotage Charge Fuel Morale'.split(' ');
     var keyword_1 = items[Math.floor(random()*items.length)];
     var keyword_2 = items[Math.floor(random()*items.length)];
@@ -167,7 +204,7 @@ function get_data_and_draw_card (card_id, card_size, card_style, save_to_disk) {
         style : style,
         size: size,
         bg_image : bg_image,
-        card_id: card_id,
+        card_id: id,
         this_card_data: this_card_data,
         dice_text : dice_text,
         num_text : num_text,
@@ -176,18 +213,16 @@ function get_data_and_draw_card (card_id, card_size, card_style, save_to_disk) {
         keywords : [keyword_1, keyword_2, keyword_3, keyword_4]
     };
 
-
     //Construct the card's image
     var stream = card_drawing.draw_card(options);
 
-    if (save_to_disk) {
-        //Save PNG to directory of cards
-        var path = __dirname + '/images/cards/card_' + size + '_' + style + '_' + card_id + '.png';
-        var out = fs.createWriteStream(path);
-        stream.on('data', function(chunk) {
-            out.write(chunk);
-        });
-    }
+    //Save PNG to directory of cards
+    var path = card_file_name(size, style, id, true);
+    var out = fs.createWriteStream(path);
+    stream.on('data', function(chunk) {
+        out.write(chunk);
+    });
+    image_file_list = image_file_list.concat(card_file_name(size, style, id, false));
 
     //Export as PNG to browser
     return stream;
@@ -207,4 +242,10 @@ var rand_seed = 1;
 function random() {
     var x = Math.sin(rand_seed++) * 10000;
     return x - Math.floor(x);
+}
+
+
+function card_file_name(size, style, id, with_dir) {
+    var url = with_dir ? card_images_directory : '';
+    return url + 'card_' + size + '_' + style + '_' + id + '.png';
 }
