@@ -7,10 +7,15 @@ module.exports = {
 };
 
 //TODO: Have different sizes for big/small cards
-var card_width = 825,
-    card_height = 1125,
+var big_card_width = 825,
+    big_card_height = 1125,
+    big_border_outside_buffer = 30, big_border_outside_buffer_round = 20,
+
+    small_card_width = 600,
+    small_card_height = 825,
+    small_border_outside_buffer = 10, small_border_outside_buffer_round = 0,
+
     card_count = 81, //81,
-    border_1 = 30, border_1_round = 20,
     thumbnail_scale = 0.2;
 
 var default_card_style = {
@@ -28,19 +33,24 @@ function show_thumbnails(options) {
     var skip_count = (options && options.all) ? 1 : 10;
     var style = parseInt(options.style.id) || 1;
 
-    var image_w = card_width * thumbnail_scale;
-    var image_h = card_height * thumbnail_scale;
     var html = '', card_id, url;
 
-    html += '<style>img {border:1px solid lightblue; margin:4px;width:' + image_w + 'px;height:' + image_h + 'px;}</style>';
+    var image_w_big = big_card_width * thumbnail_scale;
+    var image_h_big = big_card_height * thumbnail_scale;
+    var image_w_small = small_card_width * thumbnail_scale;
+    var image_h_small = small_card_height * thumbnail_scale;
+
+
+    html += '<style>.card_big {border:1px solid lightblue; margin:4px;width:' + image_w_big + 'px;height:' + image_h_big + 'px;}';
+    html += '.card_small {border:1px solid lightblue; margin:4px;width:' + image_w_small + 'px;height:' + image_h_small + 'px;}</style>';
     for (card_id = 0; card_id < card_count; card_id += skip_count) {
         url = '/card/big/' + style + '/' + Math.floor(card_id);
-        html += '<a href="' + url + '"><img src="' + url + '" class="card"/></a>';
+        html += '<a href="' + url + '"><img src="' + url + '" class="card_big"/></a>';
     }
     html += "<br/>";
     for (card_id = 0; card_id < card_count; card_id += skip_count) {
         url = '/card/small/' + style + '/' + Math.floor(card_id);
-        html += '<a href="' + url + '"><img src="' + url + '" class="card"/></a>';
+        html += '<a href="' + url + '"><img src="' + url + '" class="card_small"/></a>';
     }
 
     return html;
@@ -67,36 +77,43 @@ function draw_card(options) {
     options = options || {};
     options.style = _.extend({}, default_card_style, options.style);
 
+    var card_width, card_height, border_outside_buffer, border_outside_buffer_round,height_mod;
+
+    if (options.size == 'small') {
+        card_width = small_card_width;
+        card_height = small_card_height;
+        border_outside_buffer = big_border_outside_buffer;
+        border_outside_buffer_round = big_border_outside_buffer_round;
+        height_mod = 0;
+    } else {
+        card_width = big_card_width;
+        card_height = big_card_height;
+        border_outside_buffer = small_border_outside_buffer;
+        border_outside_buffer_round = small_border_outside_buffer_round;
+        height_mod = -35;
+    }
+    
+    
     //Create the canvas
     var canvas_fabric = fabric.createCanvasForNode(card_width, card_height);
     canvas_fabric.backgroundColor = options.style.bg_color || "black";
     canvas_fabric.setBackgroundImage(options.bg_image);
 
     var rect;
-    if (options.style.layout == "central") {
+    if (options.style.layout == "central" || options.style.layout == "stacked") {
         rect = draw_border_rect({
             w: card_width,
             h: card_height,
-            b: border_1,
-            br: border_1_round,
-            color: options.style.main_color,
-            lw: 4
-        });
-        canvas_fabric.add(rect);
-    } else if (options.style.layout == "stacked") {
-        rect = draw_border_rect({
-            w: card_width,
-            h: card_height,
-            b: border_1,
-            br: 0,
+            b: border_outside_buffer,
+            br: border_outside_buffer_round,
             color: options.style.main_color,
             lw: 4
         });
         canvas_fabric.add(rect);
     }
 
-    var line_vert_pos = border_1 + 160;
-    var underline = new fabric.Line([border_1, line_vert_pos, card_width - border_1, line_vert_pos], {
+    var line_vert_pos = border_outside_buffer + 160;
+    var underline = new fabric.Line([border_outside_buffer, line_vert_pos, card_width - border_outside_buffer, line_vert_pos], {
         strokeWidth: 4
         , stroke: options.style.main_color
     });
@@ -115,7 +132,6 @@ function draw_card(options) {
     canvas_fabric.centerObjectH(text);
 
     //TODO: Make these a function and have pos/font size differ by content
-    var height_mod = -35;
     var diamond_1 = new fabric.Rect({
         left: card_width / 2,
         top: (card_height / 2) - 205 + height_mod,
@@ -250,9 +266,9 @@ function draw_card(options) {
         width: tile_width
         , height: tile_height
         , left: ((card_width - tile_width) / 2)
-        , top: tile_width + border_1 + 20
-        , rx: border_1_round
-        , ry: border_1_round
+        , top: tile_width + border_outside_buffer + 20
+        , rx: border_outside_buffer_round
+        , ry: border_outside_buffer_round
         , strokeWidth: 4
         , stroke: options.style.main_color
     });
@@ -261,7 +277,7 @@ function draw_card(options) {
     if (options.num_text >= 0) options.num_text = "+" + options.num_text;
     var text_total = new fabric.Text(options.num_text, {
         left: ((card_width) / 2)
-        , top: (tile_width * .4) + border_1 + 162
+        , top: (tile_width * .4) + border_outside_buffer + 162
         , fill: (options.num_text < 0) ? options.style.negative_color : options.style.main_color
         , originX: 'center', originY: 'center'
         , fontSize: (tile_width * .8)
@@ -273,12 +289,12 @@ function draw_card(options) {
     if (options.size == 'big') {
         var text_story = new fabric.Textbox(options.story_text, {
             left: ((card_width) / 2)
-            , top: card_height - border_1 - 30
+            , top: card_height - border_outside_buffer - 30
             , originX: 'center', originY: 'bottom'
             , fontSize: 28
             , height: 200
             , textAlign: 'center'
-            , width: card_width - (border_1 * 2) - 40
+            , width: card_width - (border_outside_buffer * 2) - 40
             , fontWeight: 'bold'
             //, stroke: 'black'
             , fill: options.style.main_color
