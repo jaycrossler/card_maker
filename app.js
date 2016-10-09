@@ -119,7 +119,8 @@ app.get('/', function (req, res) {
         h += "[<a href='/cards/" + style.id + "/images/big'>Big Deck (images)</a>] ";
         h += "[<a href='/cards/" + style.id + "/images/small'>Small Deck (images)</a>] ";
         h += "[<a href='/cards/" + style.id + "/pdf/big'>Big Deck (pdfs)</a>] ";
-        h += "[<a href='/cards/" + style.id + "/pdf/small'>Small Deck (pdfs)</a>]<br/>";
+        h += "[<a href='/cards/" + style.id + "/pdf/small'>Small Deck (pdfs)</a>] ";
+        h += "[<a href='/delete-images/style/" + style.id + "'>DELETE ALL CACHED IMAGES</a>]<br/>";
         h += card_drawing.show_thumbnails({size: 'big', all: false, style: style});
     });
 
@@ -163,6 +164,25 @@ app.get('/delete-images', function (req, res) {
     res.redirect("/");
 });
 
+//Delete all images in the system
+app.get('/delete-images/style/:style_id', function (req, res) {
+    var style_id = req.params.style_id;
+
+    _.each(image_file_list, function (file) {
+        var file_style = file.split('_')[2];
+        if (file_style == style_id) {
+            fs.unlink(card_images_directory + file, function (err) {
+                if (err) return console.log(err);
+                console.log('File ' + file + ' deleted successfully');
+            });
+        }
+    });
+
+    init();
+    res.redirect("/");
+});
+
+
 //=================================================
 app.get('/card/:size/:style/:id', function (req, res) {
     //var canvas = new Canvas(card_width, card_height);
@@ -180,8 +200,8 @@ app.get('/card/:size/:style/:id', function (req, res) {
     if (image_on_disk && !flush) {
         //Image file exists already, return cached file
         fs.readFile(card_file_name(size, style_id, id, true), function (err, data) {
-            if (err) throw err;
-            console.log(file_name + ' found in local file cache, sent from file');
+            // if (err) throw err;
+            // console.log(file_name + ' found in local file cache, sent from file');
 
             res.writeHead(200, {'Content-Type': 'image/png'});
             res.end(data);
@@ -213,7 +233,7 @@ function get_data_and_draw_card(options) {
     var dice_text = this_card_data['gsx$dice']['$t']; //TODO: Build some exception handling
     var num_text = this_card_data['gsx$result']['$t'];
     var title_text = this_card_data['gsx$text']['$t'];
-    var story_text = "1LT Dewberry was a helicopter pilot - well liked, intelligent and popular with the ladies.  Unfortunately, none of those traits discouraged the incomming MANPAD rocket.";
+    var story_text = "1LT Dewberry was a helicopter pilot - well liked, intelligent and popular with the ladies.  Unfortunately, none of those traits discouraged the incoming MANPAD rocket.";
 
     rand_seed = id;
     var items = 'Artillery Scouts Stealth Airpower Cyber Logistics Leader Weather Terrain Tunnel Sabotage Charge Fuel Morale'.split(' ');

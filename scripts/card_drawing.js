@@ -114,7 +114,7 @@ function draw_card(options) {
     canvas_fabric.add(text);
     canvas_fabric.centerObjectH(text);
 
-    //TODO: Make these a function and have pos/fontsize differ by content
+    //TODO: Make these a function and have pos/font size differ by content
     var height_mod = -35;
     var diamond_1 = new fabric.Rect({
         left: card_width / 2,
