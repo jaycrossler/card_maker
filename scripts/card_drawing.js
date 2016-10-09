@@ -7,30 +7,33 @@ module.exports = {
     test : function(){return "test"}
 };
 
+//TODO: Have different sizes for big/small cards
 var card_width = 825,
     card_height = 1125,
     card_count = 81, //81,
     border_1 = 30, border_1_round = 20,
     thumbnail_scale = 0.2;
 
-
-
-
+//TODO: Extract drawing into separate functions and build a DSL
 
 function show_thumbnails(options) {
 
     //If options.all, show all cards, otherwise only every 9th
     var skip_count = (options && options.all) ? 1 : 10;
     var style = parseInt(options.style.id) || 1;
-    var size = (options.size == 'big') ? 'big' : 'small';
 
     var image_w = card_width * thumbnail_scale;
     var image_h = card_height * thumbnail_scale;
-    var html = '';
+    var html = '', card_id, url;
 
     html += '<style>img {border:1px solid lightblue; margin:4px;width:'+image_w+'px;height:'+image_h+'px;}</style>';
-    for (var card_id=0; card_id<card_count; card_id+=skip_count) {
-        var url = '/card/' + size + '/' + style + '/'+ Math.floor(card_id);
+    for (card_id=0; card_id<card_count; card_id+=skip_count) {
+        url = '/card/big/' + style + '/'+ Math.floor(card_id);
+        html += '<a href="' + url + '"><img src="' + url + '" class="card"/></a>';
+    }
+    html += "<br/>";
+    for (card_id=0; card_id<card_count; card_id+=skip_count) {
+        url = '/card/small/' + style + '/'+ Math.floor(card_id);
         html += '<a href="' + url + '"><img src="' + url + '" class="card"/></a>';
     }
 
@@ -233,22 +236,23 @@ function draw_card(options) {
     });
     canvas_fabric.add(text_total);
 
-    var text_story = new fabric.Textbox(options.story_text, {
-        left: ((card_width) / 2)
-        , top: card_height - border_1 - 30
-        , originX : 'center', originY: 'bottom'
-        , fontSize: 28
-        , height: 200
-        , textAlign: 'center'
-        , width: card_width - (border_1 * 2) - 40
-        , fontWeight: 'bold'
-        //, stroke: 'black'
-        , fill: 'yellow'
-        , fontFamily: 'Impact'
+    if (options.size == 'big') {
+        var text_story = new fabric.Textbox(options.story_text, {
+            left: ((card_width) / 2)
+            , top: card_height - border_1 - 30
+            , originX: 'center', originY: 'bottom'
+            , fontSize: 28
+            , height: 200
+            , textAlign: 'center'
+            , width: card_width - (border_1 * 2) - 40
+            , fontWeight: 'bold'
+            //, stroke: 'black'
+            , fill: 'yellow'
+            , fontFamily: 'Impact'
 
-    });
-    canvas_fabric.add(text_story);
-
+        });
+        canvas_fabric.add(text_story);
+    }
 
     return canvas_fabric.createPNGStream();
 

@@ -202,6 +202,8 @@ function get_data_and_draw_card (options) {
     var id = (options && options.id) || 1;
 
     //Get Card variables
+    card_data.feed = card_data.feed || {};
+    card_data.feed.entry = card_data.feed.entry || [];
     var cards = card_data.feed.entry;
     var this_card_data = cards[id];
     var dice_text = this_card_data['gsx$dice']['$t']; //TODO: Build some exception handling
