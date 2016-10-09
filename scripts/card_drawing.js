@@ -20,17 +20,17 @@ var card_width = 825,
 function show_thumbnails(options) {
 
     //If options.all, show all cards, otherwise only every 9th
-    var skip_count = (options && options.all) ? 1 : 9;
-    var style = parseInt(options.style) || 1;
+    var skip_count = (options && options.all) ? 1 : 10;
+    var style = parseInt(options.style.id) || 1;
     var size = (options.size == 'big') ? 'big' : 'small';
 
     var image_w = card_width * thumbnail_scale;
     var image_h = card_height * thumbnail_scale;
     var html = '';
 
-    html += '<style>.card {border:1px solid lightblue; margin:4px;width:'+image_w+'px;height:'+image_h+'px;}</style>';
+    html += '<style>img {border:1px solid lightblue; margin:4px;width:'+image_w+'px;height:'+image_h+'px;}</style>';
     for (var card_id=0; card_id<card_count; card_id+=skip_count) {
-        var url = '/card/' + size + '/' + style + '/'+ card_id;
+        var url = '/card/' + size + '/' + style + '/'+ Math.floor(card_id);
         html += '<a href="' + url + '"><img src="' + url + '" class="card"/></a>';
     }
 
@@ -44,7 +44,6 @@ function draw_card(options) {
     var canvas_fabric = fabric.createCanvasForNode(card_width, card_height);
     canvas_fabric.backgroundColor = 'black';
     canvas_fabric.setBackgroundImage(options.bg_image);
-
 
 
     //Build "border_1" rectangle around the border
@@ -210,10 +209,10 @@ function draw_card(options) {
     canvas_fabric.add(callout_4);
 
     //Small tile of total score in bottom right
-    var tile_width = 120;
+    var tile_width = 120, tile_height = 120;
     var rect_small = new fabric.Rect({
         width: tile_width
-        , height: tile_width
+        , height: tile_height
         , left: ((card_width - tile_width) / 2)
         , top: tile_width + border_1 + 20
         , rx: border_1_round

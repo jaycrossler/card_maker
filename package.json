@@ -2,7 +2,7 @@
   "name": "card_maker",
   "version": "1.0.0",
   "description": "Makes Card images",
-  "main": "index.js",
+  "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -15,6 +15,7 @@
     "jsonfile": "^2.3.1",
     "node-gyp": "^3.4.0",
     "request": "^2.74.0",
-    "underscore": "^1.8.3"
+    "underscore": "^1.8.3",
+    "q": ""
   }
 }

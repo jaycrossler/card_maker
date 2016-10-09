@@ -3,16 +3,17 @@ var express = require('express')
     , jsonfile = require('jsonfile')
     , _ = require('underscore')
     , fs = require('fs')
+    , Q = require('Q')
     , card_drawing = require('./scripts/card_drawing')
     , card_images_directory = __dirname + '/images/cards/'
     , fabric = require('fabric').fabric;
 
 var card_styles = [
-    {id: 1, name: 'Aeon'},
-    {id: 2, name: 'Garden of Musk'},
-    {id: 3, name: 'Swords and Suckers'},
-    {id: 4, name: 'Ye Olde Horror Shacke'},
-    {id: 5, name: 'Build your own decks!'}
+    {id: 1, name: 'Aeon', bg_image: 0}
+    , {id: 2, name: 'Garden of Musk', bg_image: 1}
+    , {id: 3, name: 'Swords and Suckers', bg_image: 3}
+    , {id: 4, name: 'Ye Olde Horror Shacke', bg_image: 2}
+    // , {id: 5, name: 'Build your own decks!', bg_image: 0}
 ];
 
 
@@ -20,51 +21,73 @@ var card_styles = [
 var app = express();
 var sheet_url = "https://spreadsheets.google.com/feeds/list/1r2bJjGhoaIfm8iEfsCHKiu3oSOznx5H2HFhwnWwYfjs/od6/public/values?alt=json",
     card_data = null,
-    bg_image = null,
+    bg_images = [],
     image_file_list = [],
-    bg_src = 'images/blue_hex_bg.png',
+    bg_srcs = ['images/blue_hex_bg.png','images/red_hex_bg.png', 'images/blue_hex_bg2.png', 'images/red_hex_bg2.png'],
     cache_file = '/tmp/card_data_from_sheets.json';
 
 function init(){
 
-    //TODO: Load multiple background images
-    fabric.util.loadImage(bg_src, function(img) {
-        bg_image = new fabric.Image(img);
+    function load_bg_image(src, id, callback){
+        fabric.util.loadImage(src, function(img) {
+            bg_images[id] = new fabric.Image(img);
+            console.log("Loaded BG Image " +id + ': ' + src);
+            return callback();
+        });
+    }
 
-        //Load data file
-        fs.readFile(cache_file, 'utf8', function (err, data) {
-            if (err) {
-                //console.error(err);
+    function load_all_bg_images(images) {
+        var the_promises = [];
 
-                //Load from Google Sheets
-                request({
-                    url: sheet_url,
-                    json: true
-                }, function (error, response, body) {
-                    if (!error && response.statusCode === 200) {
-                        console.log('gSheets url returned data');
+        _.each(images, function(src, i){
+            var deferred = Q.defer();
 
-                        jsonfile.writeFile(cache_file, body, function (err) {
-                            console.error(err);
-                        });
-                        console.log('Settings data from gSheets written to file');
-
-                        card_data = body;
-                    }
-                });
-
-            } else {
-                console.log('Settings data from gSheets parsed in from saved file');
-                card_data = JSON.parse(data);
-            }
+            load_bg_image(src, i, function(result) {
+                deferred.resolve(result);
+            });
+            the_promises.push(deferred.promise);
         });
 
-        fs.readdir(card_images_directory, function (err, data) {
-            image_file_list = data;
-            console.log(data.length + ' images already in system');
-        });
+        return Q.all(the_promises);
+    }
+    load_all_bg_images(bg_srcs);
 
+
+
+    //Load data file
+    fs.readFile(cache_file, 'utf8', function (err, data) {
+        if (err) {
+            //console.error(err);
+
+            //Load from Google Sheets
+            request({
+                url: sheet_url,
+                json: true
+            }, function (error, response, body) {
+                if (!error && response.statusCode === 200) {
+                    console.log('gSheets url returned data');
+
+                    jsonfile.writeFile(cache_file, body, function (err) {
+                        console.error(err);
+                    });
+                    console.log('Settings data from gSheets written to file');
+
+                    card_data = body;
+                }
+            });
+
+        } else {
+            console.log('Settings data from gSheets parsed in from saved file');
+            card_data = JSON.parse(data);
+        }
     });
+
+    //Load list of cached images
+    fs.readdir(card_images_directory, function (err, data) {
+        image_file_list = data;
+        console.log(data.length + ' images already in system');
+    });
+
 
 }
 
@@ -82,7 +105,7 @@ app.get('/', function (req, res) {
 
 
     var h = "<html><head><title>The Size of Your Deck</title></head><body>";
-    h += '<style>body {background-color: lightblue;font-family: Verdana}</style>';
+    h += '<style>body {background-color: lightblue; font-family: Verdana, Arial, serif}</style>';
     h += "<h1>The Size of your Deck!</h1>";
 
     _.each(card_styles, function(style){
@@ -122,7 +145,7 @@ app.get('/flush', function (req, res) {
 
 //Delete all images in the system
 app.get('/delete-images', function (req, res) {
-
+    //TODO: Optionally delete just images from a certain style
     _.each(image_file_list, function(file){
 
         fs.unlink(card_images_directory + file,function(err){
@@ -131,7 +154,6 @@ app.get('/delete-images', function (req, res) {
         });
 
     });
-
 
     init();
     res.redirect("/");
@@ -144,23 +166,29 @@ app.get('/card/:size/:style/:id', function (req, res) {
 
     var id = req.params.id || 0;
     var size = (req.params.size == 'big') ? 'big' : 'small';
-    var style = parseInt(req.params.style);
+    var style_id = parseInt(req.params.style);
+
+
+    var flush = req.query.flush; // Add ?flush to url to rebuild the image
 
     //Don't regenerate cards if already exist - pull from saved
-    var file_name = card_file_name(size, style, id, false);
-    if (_.indexOf(image_file_list, file_name) > -1) {
+    var file_name = card_file_name(size, style_id, id, false);
+    var image_on_disk = _.indexOf(image_file_list, file_name) > -1;
+
+    if (image_on_disk && !flush) {
         //Image file exists already, return cached file
-        fs.readFile(card_file_name(size, style, id, true), function(err, data) {
+        fs.readFile(card_file_name(size, style_id, id, true), function(err, data) {
             if (err) throw err;
-            //console.log(file_name + ' found in local file cache, sent from file');
+            console.log(file_name + ' found in local file cache, sent from file');
 
             res.writeHead(200, {'Content-Type': 'image/png'});
             res.end(data);
         });
     } else {
         //No image, generate it
-        var stream = get_data_and_draw_card(id, size, style);
-        //console.log(file_name + ' not found in local file cache - generating');
+        var style = _.find(card_styles,function(style){return style.id == style_id});
+        var stream = get_data_and_draw_card({id:id, size:size, style:style});
+        console.log(file_name + ' not found in local file cache - generating');
 
         res.setHeader('Content-Type', 'image/png');
         stream.pipe(res);
@@ -168,10 +196,10 @@ app.get('/card/:size/:style/:id', function (req, res) {
 
 });
 
-function get_data_and_draw_card (id, card_size, card_style) {
+function get_data_and_draw_card (options) {
 
-    var size = (card_size == 'big') ? 'big' : 'small';
-    var style = parseInt(card_style);
+    var size = (options && options.size == 'big') ? 'big' : 'small';
+    var id = (options && options.id) || 1;
 
     //Get Card variables
     var cards = card_data.feed.entry;
@@ -200,10 +228,11 @@ function get_data_and_draw_card (id, card_size, card_style) {
         }
     }
 
-    var options = {
-        style : style,
+    //Build the content to use to generate the card image
+    var card_options = {
+        style : options.style.id,
         size: size,
-        bg_image : bg_image,
+        bg_image : bg_images[options.style.bg_image],
         card_id: id,
         this_card_data: this_card_data,
         dice_text : dice_text,
@@ -214,15 +243,16 @@ function get_data_and_draw_card (id, card_size, card_style) {
     };
 
     //Construct the card's image
-    var stream = card_drawing.draw_card(options);
+    var stream = card_drawing.draw_card(card_options);
 
     //Save PNG to directory of cards
-    var path = card_file_name(size, style, id, true);
+    var path = card_file_name(size, options.style.id, id, true);
     var out = fs.createWriteStream(path);
     stream.on('data', function(chunk) {
         out.write(chunk);
     });
-    image_file_list = image_file_list.concat(card_file_name(size, style, id, false));
+    //Add to the cache list that a new one was created
+    image_file_list = image_file_list.concat(card_file_name(size, options.style.id, options.id, false));
 
     //Export as PNG to browser
     return stream;
