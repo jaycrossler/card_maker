@@ -18,7 +18,7 @@ var card_styles = [
     , {
         id: 2, name: 'Garden of Musk', bg_image: 1, bg_color: 'black',
         main_color: 'red', second_color: 'orange', negative_color: 'white', positive_color: 'orange',
-        layout: 'stacked', dice_display: 'square', total: 'bottom right', font: 'Arial'
+        layout: 'stacked', dice_display: 'square', total: 'bottom right', total_small: 'center middle', font: 'Arial'
     }
 
     , {id: 3, name: 'Swords and Suckers', bg_image: 3}
