@@ -213,7 +213,29 @@ function build_card_pieces_from_layer(layer, options) {
         pieces.push(text_story);
     } else if (renderer == 'Text List') {
         //---------------------------------------
+        var list_text = "";
+        if (layer.title) list_text += layer.title + "\n";
+        var items = value_parser(layer, 'values', options);
+        if (layer.unique) {
+            items = _.uniq(items);
+        }
+        _.each(items, function(item){
+            list_text += item + "\n";
+        });
 
+        var text_list_items = new fabric.Textbox(list_text, {
+            left: (card_width * layer.left)
+            , top: (card_height * layer.top)
+            , originX: 'center', originY: 'top'
+            , fontSize: (card_width * layer.scale)
+            , height: (card_height * layer.box_height)
+            , textAlign: 'center'
+            , width: card_width - (border_outside_buffer * 2) - 40
+            , fontWeight: 'bold'
+            , fill: value_parser(layer, 'color', options)
+            , fontFamily: value_parser(layer, 'font', options)
+        });
+        pieces.push(text_list_items);
     }
     return pieces;
 }

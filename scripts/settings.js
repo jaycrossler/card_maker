@@ -12,7 +12,7 @@ var layer_defaults = [
     {renderer: 'Number Diamonds', top: -.06, values: '{{dice}}', outside_text:'{{keywords}}'},
     {renderer: 'Number In Box', scale: .15, top: .18, left:.5, text_left: -.008, text_top: .008, value:'{{value}}', color:'{{main_color}}', rounded: .03, font:'Impact'},
     {renderer: 'Paragraph', top: .95, left:.5, scale: .035, box_height: .17, value:'{{description}}', color:'{{main_color}}'}, //TODO: Add , box:'none', background_color:'none'
-    {renderer: 'Text List', values:'{{keywords}}', color:'{{second_color}}', title:'Aspects:'}
+    {renderer: 'Text List', top: .52, left:.5, scale: 0.09, box_height: .2, values:'{{keywords}}', color:'{{second_color}}', title:''}
 ];
 var default_card_style = {
     bg_image: 0, bg_color: 'black',
@@ -33,8 +33,8 @@ var default_card_style = {
         {renderer: 'Border', rounded: 0},
         {renderer: 'Card Top Title'},
         {renderer: 'Horizontal Line', top: .15},
-        {renderer: 'Number In Box', scale: .4, rounded: .05, top:.4, left:.5},
-        {renderer: 'Text List', title:'Aspects:'}
+        {renderer: 'Number In Box', scale: .4, top:.33, rounded: .05, left:.5},
+        {renderer: 'Text List', title:'ASPECTS:', top: .52, values:'{{keywords}}', unique:true}
     ]
 };
 
