@@ -9,6 +9,7 @@
   "author": "Jay Crossler",
   "license": "ISC",
   "dependencies": {
+    "Q": "^1.0.1",
     "canvas": "^1.5.0",
     "express": "^4.14.0",
     "fabric": "^1.6.4",
@@ -16,6 +17,6 @@
     "node-gyp": "^3.4.0",
     "request": "^2.74.0",
     "underscore": "^1.8.3",
-    "Q": "^1.0.1"
+    "underscore.string": "^3.3.4"
   }
 }

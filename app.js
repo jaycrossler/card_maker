@@ -71,9 +71,9 @@ app.get('/', function (req, res) {
     //TODO: Allow user to design their own style
     //TODO: Decide if style should be an int or a guid
 
-    var h = "<html><head><title>The Size of Your Deck</title></head><body>";
+    var h = "<html><head><title>TSOYD</title></head><body>";
     h += '<style>body {background-color: lightblue; font-family: Verdana, Arial, serif}</style>';
-    h += "<h1>The Size of your Deck!</h1>";
+    h += "<h1>What is The Size of your Deck?!</h1>";
 
     _.each(settings.card_styles, function (style) {
         h += "<h2>" + style.name + "</h2>";
@@ -214,7 +214,8 @@ function get_data_and_draw_card(options) {
     };
 
     //Construct the card's image
-    var stream = card_drawing.draw_card(card_options);
+//    var stream = card_drawing.draw_card(card_options);
+    var stream = card_drawing.card_renderer_manager(card_options);
 
     //Save PNG to directory of cards
     var path = card_file_name(size, options.style.id, id, true);
