@@ -1,12 +1,8 @@
-var fabric = require('fabric').fabric,
-    _ = require('underscore');
+var fabric = require('fabric').fabric
+    , settings = require('./settings')
+    , _ = require('underscore');
 
-module.exports = {
-    show_thumbnails: show_thumbnails,
-    draw_card: draw_card
-};
 
-//TODO: Have different sizes for big/small cards
 var big_card_width = 825,
     big_card_height = 1125,
     big_border_outside_buffer = 30, big_border_outside_buffer_round = 20,
@@ -18,6 +14,7 @@ var big_card_width = 825,
     card_count = 81, //81,
     thumbnail_scale = 0.2;
 
+//TODO: Move to settings library
 var default_card_style = {
     bg_image: 0, bg_color: 'black',
     main_color: 'yellow', second_color: 'white', font: 'Impact',
@@ -55,6 +52,46 @@ function show_thumbnails(options) {
     return html;
 }
 
+function card_renderer_manager(options) {
+    options = options || {};
+    options.style = _.extend({}, default_card_style, options.style);
+
+
+    var card_width, card_height;
+    if (options.size == 'small') {
+        card_width = small_card_width;
+        card_height = small_card_height;
+    } else {
+        // Big
+        card_width = big_card_width;
+        card_height = big_card_height;
+    }
+
+    //Create the canvas
+    var canvas_fabric = fabric.createCanvasForNode(card_width, card_height);
+    canvas_fabric.backgroundColor = options.style.bg_color || "black";
+
+    //Manage adding all layers
+    var layers = (options.size == 'big') ? options.style.layers_big : options.style.layers_small;
+    _.each(layers, function(layer){
+        if (layer.renderer == 'Background Image') {
+            canvas_fabric.setBackgroundImage(settings.image_cached_by_src(layer.src));
+        } else {
+            _.each(card_renderer(layer, options), function(image_layer){
+               canvas_fabric.add(image_layer);
+            });
+        }
+    });
+
+    return canvas_fabric.createPNGStream();
+}
+
+//--------------------------------
+function card_renderer(layer, options) {
+
+}
+
+//--------------------------------
 function draw_card(options) {
 
     options = options || {};
@@ -361,3 +398,11 @@ function draw_diamonds(options, card_width, card_height, height_mod) {
 
     return canvas_items;
 }
+
+
+
+//======================================
+module.exports = {
+    show_thumbnails: show_thumbnails,
+    draw_card: draw_card
+};
