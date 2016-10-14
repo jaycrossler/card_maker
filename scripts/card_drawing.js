@@ -1,7 +1,9 @@
 var fabric = require('fabric').fabric
     , settings = require('./settings')
     , _ = require('underscore')
-    , _s = require("underscore.string");
+    , _s = require("underscore.string")
+    , fs = require('fs')
+    , PDF = require("pdfkit");
 
 
 var big_card_width = 825,
@@ -592,10 +594,76 @@ function draw_diamonds(options, card_width, card_height, height_mod, layer) {
     return canvas_items;
 }
 
+function pdf_renderer_piper(options, res){
+    var doc = new PDF({
+        size: 'LEGAL', // See other page sizes here: https://github.com/devongovett/pdfkit/blob/d95b826475dd325fb29ef007a9c1bf7a527e9808/lib/page.coffee#L69
+
+        info: {
+            Title: 'TSOYD Cards, Style ' + options.style,
+            Author: 'Paul Vencill and Jay Crossler'
+        }
+    });
+    var filename ='./images/pdfs/cards_' + options.style + '_'+ options.size + '.pdf';
+    doc.pipe(
+        fs.createWriteStream(filename)
+    ).on('finish', function () {
+        console.log('Wrote PDF file ' + filename);
+
+        fs.readFile(filename, function (err, data) {
+            // if (err) throw err;
+            // console.log(file_name + ' found in local file cache, sent from file');
+
+            res.writeHead(200, {'Content-Type': 'application/pdf'});
+            res.end(data);
+        });
+    });
+    //--------------------------
+    var width_pixels = 804;
+
+    var num_x = 4;
+    var num_y = 5;
+
+    var aspect =  big_card_width / big_card_height;
+
+    var height = Math.floor(width_pixels / num_x);
+    var width = Math.floor(aspect * height);
+    var page_break = (num_y * num_x);
+
+    for(var i=0; i<81; i++) {
+        var url = "./images/cards/card_big_" + options.style + '_' + i + '.png';
+        var x = (width * (i % num_x));
+        var y = (height * Math.floor((i % page_break) / num_x));
+
+        doc.image(url, x, y, {fit: [width, height]})
+            .stroke();
+
+        if ((i % page_break) == (page_break-1)) {
+            doc.addPage();
+            console.log("Adding page after image " + i + ", pagebreak " + page_break);
+        }
+
+    }
+
+    // doc.text('Hello World');
+    //
+    // doc.addPage()
+    //     .fontSize(25)
+    //     .text('Here is some vector graphics...', 100, 100);
+    //
+    // doc.save()
+    //     .moveTo(100, 150)
+    //     .lineTo(100, 250)
+    //     .lineTo(200, 250)
+    //     .fill("#FF3300");
+
+    doc.end();
+}
+
 
 
 //======================================
 module.exports = {
     show_thumbnails: show_thumbnails,
-    card_renderer_manager: card_renderer_manager
+    card_renderer_manager: card_renderer_manager,
+    pdf_renderer_piper: pdf_renderer_piper
 };

@@ -15,6 +15,7 @@
     "fabric": "^1.6.4",
     "jsonfile": "^2.3.1",
     "node-gyp": "^3.4.0",
+    "pdfkit": "^0.8.0",
     "request": "^2.74.0",
     "underscore": "^1.8.3",
     "underscore.string": "^3.3.4"

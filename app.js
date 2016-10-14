@@ -79,8 +79,8 @@ app.get('/', function (req, res) {
         h += "<h2>" + style.name + "</h2>";
         h += "[<a href='/cards/" + style.id + "/images/big'>Big Deck (images)</a>] ";
         h += "[<a href='/cards/" + style.id + "/images/small'>Small Deck (images)</a>] ";
-        h += "[<a href='/cards/" + style.id + "/pdf/big'>Big Deck (pdfs)</a>] ";
-        h += "[<a href='/cards/" + style.id + "/pdf/small'>Small Deck (pdfs)</a>] ";
+        h += "[<a href='/pdf/" + style.id + "/images/big'>Big Deck (pdfs)</a>] ";
+        h += "[<a href='/pdf/" + style.id + "/images/small'>Small Deck (pdfs)</a>] ";
         h += "[<a href='/delete-images/style/" + style.id + "'>REBUILD ALL CACHED IMAGES</a>]<br/>";
         h += card_drawing.show_thumbnails({size: 'big', all: false, style: style});
     });
@@ -94,13 +94,14 @@ app.get('/', function (req, res) {
 });
 
 app.get('/cards/:style/images/:size', function (req, res) {
-    res.write(card_drawing.show_thumbnails({size: req.params.size, all: true, style: req.params.style}));
+    var options = {size: req.params.size, all: true, style: req.params.style};
+    res.write(card_drawing.show_thumbnails(options));
     res.end();
 });
 
 app.get('/pdf/:style/images/:size', function (req, res) {
-    res.write(card_drawing.show_thumbnails({size: req.params.size, all: true, style: req.params.style}));
-    res.end();
+    var options = {size: req.params.size, all: true, style: req.params.style};
+    card_drawing.pdf_renderer_piper(options, res);
 });
 
 //Re-load all data
@@ -179,6 +180,8 @@ app.get('/card/:size/:style/:id', function (req, res) {
     }
 
 });
+
+//=================================================
 
 function get_data_and_draw_card(options) {
 
