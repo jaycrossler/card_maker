@@ -599,19 +599,18 @@ function pdf_renderer_piper(options, res){
         size: 'LEGAL', // See other page sizes here: https://github.com/devongovett/pdfkit/blob/d95b826475dd325fb29ef007a9c1bf7a527e9808/lib/page.coffee#L69
 
         info: {
-            Title: 'TSOYD Cards, Style ' + options.style,
+            Title: 'TSOYD Cards, Style ' + options.style + ' - Limits of Virtue',
             Author: 'Paul Vencill and Jay Crossler'
         }
     });
     var filename ='./images/pdfs/cards_' + options.style + '_'+ options.size + '.pdf';
-    doc.pipe(
-        fs.createWriteStream(filename)
-    ).on('finish', function () {
+    console.log('Starting to write PDF file ' + filename);
+    doc.pipe(fs.createWriteStream(filename)).on('finish', function () {
         console.log('Wrote PDF file ' + filename);
 
         fs.readFile(filename, function (err, data) {
-            // if (err) throw err;
-            // console.log(file_name + ' found in local file cache, sent from file');
+            if (err) throw err;
+            console.log(filename + ' loaded from PDF local file');
 
             res.writeHead(200, {'Content-Type': 'application/pdf'});
             res.end(data);
@@ -619,9 +618,10 @@ function pdf_renderer_piper(options, res){
     });
     //--------------------------
     var width_pixels = 804;
+    var height_pixels = 1024;
 
-    var num_x = 4;
-    var num_y = 5;
+    var num_x = options.size == 'big' ? 4 : 6;
+    var num_y = options.size == 'big' ? 5 : 7;
 
     var aspect =  big_card_width / big_card_height;
 
@@ -629,8 +629,27 @@ function pdf_renderer_piper(options, res){
     var width = Math.floor(aspect * height);
     var page_break = (num_y * num_x);
 
+    function page_bg(){
+        doc
+            .rect(0,0,width_pixels, height_pixels)
+            .fill('black');
+    }
+
+    function tiled_bg_images(){
+        //TODO: Shift pixels to the right
+        for (var j=0; j<page_break; j++) {
+            var x = (width * (j % num_x));
+            var y = (height * Math.floor((j % page_break) / num_x));
+            var url = "./images/lov_green_gold_back.png";
+            doc.image(url, x, y, {fit: [width, height]});
+        }
+    }
+
+    page_bg();
+    var last_page_added = false;
     for(var i=0; i<81; i++) {
-        var url = "./images/cards/card_big_" + options.style + '_' + i + '.png';
+        last_page_added = false;
+        var url = "./images/cards/card_" + options.size + "_" + options.style + '_' + i + '.png';
         var x = (width * (i % num_x));
         var y = (height * Math.floor((i % page_break) / num_x));
 
@@ -639,26 +658,23 @@ function pdf_renderer_piper(options, res){
 
         if ((i % page_break) == (page_break-1)) {
             doc.addPage();
-            console.log("Adding page after image " + i + ", pagebreak " + page_break);
+            page_bg();
+            tiled_bg_images();
+
+            doc.addPage();
+            page_bg();
+            // console.log("Adding page after image " + i + ", pagebreak " + page_break);
+            last_page_added = true;
         }
-
     }
-
-    // doc.text('Hello World');
-    //
-    // doc.addPage()
-    //     .fontSize(25)
-    //     .text('Here is some vector graphics...', 100, 100);
-    //
-    // doc.save()
-    //     .moveTo(100, 150)
-    //     .lineTo(100, 250)
-    //     .lineTo(200, 250)
-    //     .fill("#FF3300");
+    if (last_page_added == false) {
+        doc.addPage();
+        page_bg();
+        tiled_bg_images();
+    }
 
     doc.end();
 }
-
 
 
 //======================================
