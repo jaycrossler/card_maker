@@ -1,23 +1,37 @@
 {
   "name": "card_maker",
-  "version": "1.1.0",
-  "description": "Makes Card images",
+  "version": "1.2",
+  "description": "Sets up a simple Express webserver (default runs on 3000) that will pull data from a Google Spreadsheet and generate card images in a template format (so images can be in different sizes, different layouts, etc.)",
+  "note": "Read Install guide in README.",
   "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/jaycrossler/card_maker.git"
+  },
+  "keywords": [
+    "canvas",
+    "cards",
+    "boardgame",
+    "graphic",
+    "html5"
+  ],
   "author": "Jay Crossler",
-  "license": "ISC",
+  "license": "MIT",
+  "readmeFilename": "README.md",
   "dependencies": {
-    "Q": "^1.0.1",
-    "canvas": "^1.5.0",
-    "express": "^4.14.0",
-    "fabric": "^1.6.4",
-    "jsonfile": "^2.3.1",
-    "node-gyp": "^3.4.0",
-    "pdfkit": "^0.8.0",
-    "request": "^2.74.0",
-    "underscore": "^1.8.3",
-    "underscore.string": "^3.3.4"
+    "canvas": "^2.1.0",
+    "express": "^4.16.4",
+    "fabric": "^2.4.4",
+    "jsonfile": "^5.0.0",
+    "konva-node": "^0.9.0",
+    "node-gyp": "^3.8.0",
+    "pdfkit": "^0.8.3",
+    "q": "^1.5.1",
+    "request": "^2.88.0",
+    "underscore": "^1.9.1",
+    "underscore.string": "^3.3.5"
   }
 }

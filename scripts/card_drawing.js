@@ -1,9 +1,9 @@
-var fabric = require('fabric').fabric
-    , settings = require('./settings')
+var settings = require('./settings')
     , _ = require('underscore')
     , _s = require("underscore.string")
     , fs = require('fs')
-    , PDF = require("pdfkit");
+    , PDF = require("pdfkit")
+    , Konva = require('konva-node');
 
 
 var big_card_width = 825,
@@ -46,10 +46,14 @@ function show_thumbnails(options) {
 }
 
 function card_renderer_manager(options) {
+    // Returns a Stage of layers
+
     options = options || {};
     options.style = _.extend({}, settings.default_card_style, options.style);
 
 
+    //Determine card sizes
+    //TODO: Allow h,w as user settings
     var card_width, card_height;
     if (options.size == 'small') {
         card_width = small_card_width;
@@ -60,24 +64,47 @@ function card_renderer_manager(options) {
         card_height = big_card_height;
     }
 
-    //Create the canvas
-    var canvas_fabric = fabric.createCanvasForNode(card_width, card_height);
-    canvas_fabric.backgroundColor = options.style.bg_color || "black";
-
-    //Manage adding all layers
-    var layers = (options.size == 'big') ? options.style.layers_big : options.style.layers_small;
-    _.each(layers, function(layer){
-        var layer_extended = extend_layer_from_defaults(layer);
-        if (layer_extended.renderer == 'Background Image') {
-            canvas_fabric.setBackgroundImage(settings.image_cached_by_src(layer_extended.src));
-        } else {
-            _.each(build_card_pieces_from_layer(layer_extended, options), function(image_layer){
-               canvas_fabric.add(image_layer);
-            });
-        }
+    //Create the canvas stage
+    var stage = new Konva.Stage({
+      width: card_width,
+      height: card_height
     });
 
-    return canvas_fabric.createPNGStream();
+    //Add a background layer
+    var layer = new Konva.Layer();
+    stage.add(layer);
+    var rect = new Konva.Rect({
+      width: card_width,
+      height: card_height,
+      x: 0,
+      y: 0,
+      fill: options.style.bg_color || "black"
+    });
+
+
+    //"Layer Router" to manage all layers and add them to stage
+    var layers = (options.size === 'big') ? options.style.layers_big : options.style.layers_small;
+    _.each(layers, function(layer){
+        var layer_extended = extend_layer_from_defaults(layer);
+
+        _.each(build_card_pieces_from_layer(layer_extended, options), function(image_layer){
+            stage.add(image_layer);
+        });
+        //TODO: Add in any Konva json layer as well
+    });
+
+    return stage;
+}
+
+function image_as_layer(path, card_width, card_height) {
+    var layer = new Konva.Layer();
+
+    var imageCached = settings.image_cached_by_src(path);
+    imageCached.width = card_width;
+    imageCached.height = card_height;
+    layer.add(imageCached);
+    return layer;
+
 }
 
 function extend_layer_from_defaults(layer) {
@@ -98,7 +125,7 @@ function build_card_pieces_from_layer(layer, options) {
 
     var card_width, card_height, border_outside_buffer;
 
-    if (options.size == 'small') {
+    if (options.size === 'small') {
         // Small
         card_width = small_card_width;
         card_height = small_card_height;
@@ -110,14 +137,14 @@ function build_card_pieces_from_layer(layer, options) {
     layer.padding = layer.padding || .03;
     border_outside_buffer = (card_width * layer.padding);
 
-    console.log('='+renderer);
 
-    if (renderer == 'Background Image') {
+    if (renderer === 'Background Image') {
         //---------------------------------------
-        //Should have already been handled
-    } else if (renderer == 'Border') {
+        pieces.push(image_as_layer(layer.src, card_width, card_height));
+
+    } else if (renderer === 'Border') {
         //---------------------------------------
-        var rect = draw_border_rect({
+        var layer_add = draw_border_rect({
             w: card_width,
             h: card_height,
             b: border_outside_buffer,
@@ -125,94 +152,137 @@ function build_card_pieces_from_layer(layer, options) {
             color: value_parser(layer, 'color', options),
             lw: 4
         });
-        pieces.push(rect);
-    } else if (renderer == 'Card Top Title') {
+        pieces.push(layer_add);
+    } else if (renderer === 'Card Top Title') {
         //---------------------------------------
         var text = value_parser(layer, 'value', options);
         var title_text_size = parseInt(card_width * layer.size);
-        if (text.length > 17) {
+        if (text.length > 16) {
+            title_text_size = title_text_size * .9;
+        }
+        if (text.length > 18) {
             title_text_size = title_text_size * .9;
         }
         if (text.length > 20) {
             title_text_size = title_text_size * .9;
         }
 
-        var text_item = new fabric.Text(text, {
-            left: (card_width / 2)
-            , top: (card_height * layer.top)
-            , fill: value_parser(layer, 'color', options)
-            , textAlign: 'center'
-            , fontSize: title_text_size
-            , originX: 'center', originY: 'bottom'
-            , fontWeight: 'bold'
-            , fontFamily: layer.font
-        });
-        pieces.push(text_item);
+        //Add Text
+       var layer_add = new Konva.Layer();
+       var complexText = new Konva.Text({
+         x: (card_width * .1),
+         y: (card_height * layer.top),
+         text: text,
+         fontSize: title_text_size,
+         fontFamily: layer.font || 'Calibri',
+         fill: value_parser(layer, 'color', options) || '#555',
+         width: card_width * .8,  //TODO: Verify
+         // padding: 4, //TODO: Verify
+         align: 'center'
+       });
+       layer_add.add(complexText);
 
-    } else if (renderer == 'Horizontal Line') {
+        if (layer.border) {
+           var padding = card_height * .01;
+           var rect = new Konva.Rect({
+               x: (card_width * .1),
+               y: (card_height * layer.top) - padding,
+               width: card_width * .8,  //TODO: Verify
+               stroke: '#555',
+               strokeWidth: layer.border || 2,
+               fill: layer.backgroundColor,
+               height: complexText.getHeight() + (padding*1.5),
+               padding:padding,
+               cornerRadius: layer.cornerRadius || 10
+           });
+
+           var layer_add_rect = new Konva.Layer();
+           layer_add_rect.add(rect);
+           pieces.push(layer_add_rect);
+         }
+
+         pieces.push(layer_add);
+
+    } else if (renderer === 'Horizontal Line') {
         //---------------------------------------
         var line_vert_pos = (card_width * (layer.padding + layer.top));
-        var underline = new fabric.Line([border_outside_buffer, line_vert_pos, card_width - border_outside_buffer, line_vert_pos], {
-            strokeWidth: (card_width * layer.width)
-            , stroke: value_parser(layer, 'color', options)
+        var line = new Konva.Line({
+          x: 0,
+          y: 0,
+          points: [border_outside_buffer, line_vert_pos, card_width - border_outside_buffer, line_vert_pos],
+          stroke: value_parser(layer, 'color', options),
+          strokeWidth: (card_width * layer.width),
+          tension: 1
         });
-        pieces.push(underline);
-    } else if (renderer == 'Number Diamonds') {
+        var layer_add = new Konva.Layer();
+        layer_add.add(line);
+        pieces.push(layer_add);
+
+    } else if (renderer === 'Number Diamonds') {
         //---------------------------------------
         //TODO: For some reason, the diamonds is making everything dark. Fix this
         pieces = draw_diamonds(options, card_width, card_height, (card_height * layer.top), layer);
-    } else if (renderer == 'Number In Box') {
+    } else if (renderer === 'Number In Box') {
         //---------------------------------------
         var tile_width, tile_height, tile_top, tile_left;
-        tile_width = tile_height = parseInt(card_width * layer.scale);
+        tile_width = parseInt(card_width * layer.scale);
+        tile_height = parseInt(card_width * layer.scale * .65);
         tile_top = (card_height * layer.top);
-        tile_left = (card_width * layer.left);
+        tile_left = (card_width * layer.left) - (tile_width/2);
 
-        var rect_small = new fabric.Rect({
+        var rect_small = new Konva.Rect({
             width: tile_width
             , height: tile_height
-            , left: tile_left
-            , top: tile_top
-            , originX: 'center', originY: 'center'
-            , rx: (card_width * layer.rounded)
-            , ry: (card_width * layer.rounded)
-            , strokeWidth: 4
+            , x: tile_left
+            , y: tile_top
+            // , originX: 'center', originY: 'center'
+            , cornerRadius: (card_width * layer.rounded)
+            , cornerRadius: (card_width * layer.rounded)
+            , strokeWidth: layer.border || 2
             , stroke: value_parser(layer, 'color', options)
         });
-        pieces.push(rect_small);
+        var layer_add_rect = new Konva.Layer();
+        layer_add_rect.add(rect_small);
+        pieces.push(layer_add_rect);
 
         var num_text = value_parser(layer, 'value', options);
         if (num_text >= 0) num_text = "+" + num_text;
-        var text_total = new fabric.Text(num_text, {
-            left: tile_left + (layer.text_left * card_width)
-            , top: tile_top + (layer.text_top * card_height)
+        var text_total = new Konva.Text({
+            text: num_text
+            , x: tile_left + (layer.text_left * card_width)
+            , y: tile_top + (layer.text_top * card_height)
             , fill: (num_text < 0) ? value_parser(layer, 'negative_color', options) : value_parser(layer, 'color', options)
             , originX: 'center', originY: 'center'
-            , fontSize: (tile_width * .8)
+            , align: 'center'
+            , width:tile_width
+            , fontSize: (tile_width * .6)
             , fontWeight: 'bold'
             , fontFamily: value_parser(layer, 'font', options)
         });
-        pieces.push(text_total);
+        var layer_add = new Konva.Layer();
+        layer_add.add(text_total);
+        pieces.push(layer_add);
 
 
-    } else if (renderer == 'Paragraph') {
+    } else if (renderer === 'Paragraph') {
         //---------------------------------------
         var story =  value_parser(layer, 'value', options);
-        var text_story = new fabric.Textbox(story, {
-            left: (card_width * layer.left)
-            , top: (card_height * layer.top)
-            , originX: 'center', originY: 'bottom'
+        var text_story = new Konva.Text({
+            text: story
+            , x: border_outside_buffer//(card_width * layer.left)
+            , y: (card_height * layer.top)
             , fontSize: (card_width * layer.scale)
-            , height: (card_height * layer.box_height)
-            , textAlign: 'center'
-            , width: card_width - (border_outside_buffer * 2) - 40
+            , align: 'center'
+            , width: card_width - (border_outside_buffer * 2)
             , fontWeight: 'bold'
-            //, stroke: 'black'
             , fill: value_parser(layer, 'main_color', options)
             , fontFamily: value_parser(layer, 'font', options)
 
         });
-        pieces.push(text_story);
+        var layer_add = new Konva.Layer();
+        layer_add.add(text_story);
+        pieces.push(layer_add);
+
     } else if (renderer == 'Text List') {
         //---------------------------------------
         var list_text = "";
@@ -225,19 +295,22 @@ function build_card_pieces_from_layer(layer, options) {
             list_text += item + "\n";
         });
 
-        var text_list_items = new fabric.Textbox(list_text, {
-            left: (card_width * layer.left)
-            , top: (card_height * layer.top)
-            , originX: 'center', originY: 'top'
+        var text_list_items = new Konva.Text({
+            text: list_text
+            , x: (card_width * layer.left)
+            , y: (card_height * layer.top)
             , fontSize: (card_width * layer.scale)
             , height: (card_height * layer.box_height)
-            , textAlign: 'center'
+            , align: 'center'
             , width: card_width - (border_outside_buffer * 2) - 40
             , fontWeight: 'bold'
             , fill: value_parser(layer, 'color', options)
             , fontFamily: value_parser(layer, 'font', options)
         });
-        pieces.push(text_list_items);
+
+        var layer_add = new Konva.Layer();
+        layer_add.add(text_list_items);
+        pieces.push(layer_add);
     }
     return pieces;
 }
@@ -251,206 +324,97 @@ function value_parser(layer, field, options) {
     }
 
     if (lookup_val.indexOf("{")>-1 && lookup_val.indexOf("}")>-1) {
-        if (lookup_val == '{{main_color}}') {
+        if (lookup_val === '{{main_color}}') {
             result = options.style.main_color;
-        } else if (lookup_val == '{{positive_color}}') {
+        } else if (lookup_val === '{{positive_color}}') {
             result = options.style.positive_color;
-        } else if (lookup_val == '{{negative_color}}') {
+        } else if (lookup_val === '{{negative_color}}') {
             result = options.style.negative_color;
-        } else if (lookup_val == '{{second_color}}') {
+        } else if (lookup_val === '{{second_color}}') {
             result = options.style.second_color;
-        } else if (lookup_val == '{{title}}') {
+        } else if (lookup_val === '{{title}}') {
             result = options.title_text;
-        } else if (lookup_val == '{{value}}') {
+        } else if (lookup_val === '{{value}}') {
             result = options.num_text;
-        } else if (lookup_val == '{{keywords}}') {
+        } else if (lookup_val === '{{keywords}}') {
             result = options.keywords;
-        } else if (lookup_val == '{{dice}}') {
+        } else if (lookup_val === '{{dice}}') {
             result = options.dice_text;
-        } else if (lookup_val == '{{description}}') {
+        } else if (lookup_val === '{{story}}') {
             result = options.story_text;
-        } else if (lookup_val == '{{font}}') {
+        } else if (lookup_val === '{{font}}') {
             result = options.font || 'Impact';
         }
     } else {
         result = lookup_val;
     }
 
-    console.log("Lookup of " + field + " for " + lookup_val + " was " + result);
+    // console.log("Lookup of " + field + " for " + lookup_val + " was " + result);
     return result;
 }
 
-//--------------------------------
-// function draw_card(options) {
-//
-//     options = options || {};
-//     options.style = _.extend({}, settings.default_card_style, options.style);
-//
-//     var card_width, card_height, border_outside_buffer, border_outside_buffer_round,
-//         height_mod, title_size_from_top, show_text_on_bottom;
-//
-//     if (options.size == 'small') {
-//         // Small
-//         card_width = small_card_width;
-//         card_height = small_card_height;
-//         border_outside_buffer = small_border_outside_buffer;
-//         border_outside_buffer_round = small_border_outside_buffer_round;
-//         height_mod = 0;
-//         title_size_from_top = 40;
-//         show_text_on_bottom = false;
-//     } else {
-//         // Big
-//         card_width = big_card_width;
-//         card_height = big_card_height;
-//         border_outside_buffer = big_border_outside_buffer;
-//         border_outside_buffer_round = big_border_outside_buffer_round;
-//         height_mod = -35;
-//         title_size_from_top = 70;
-//         show_text_on_bottom = true;
-//     }
-//
-//     //Create the canvas
-//     var canvas_fabric = fabric.createCanvasForNode(card_width, card_height);
-//     canvas_fabric.backgroundColor = options.style.bg_color || "black";
-//     canvas_fabric.setBackgroundImage(options.bg_image);
-//
-//     var rect;
-//     if (options.style.layout == "central" || options.style.layout == "stacked") {
-//         rect = draw_border_rect({
-//             w: card_width,
-//             h: card_height,
-//             b: border_outside_buffer,
-//             br: border_outside_buffer_round,
-//             color: options.style.main_color,
-//             lw: 4
-//         });
-//         canvas_fabric.add(rect);
-//     }
-//
-//     var line_vert_pos = border_outside_buffer + 160;
-//     var underline = new fabric.Line([border_outside_buffer, line_vert_pos, card_width - border_outside_buffer, line_vert_pos], {
-//         strokeWidth: 4
-//         , stroke: options.style.main_color
-//     });
-//     canvas_fabric.add(underline);
-//
-//     var title_text_size = parseInt(card_width * .1);
-//     if (options.title_text.length > 17) {
-//         title_text_size = title_text_size * .9;
-//     }
-//     if (options.title_text.length > 20) {
-//         title_text_size = title_text_size * .9;
-//     }
-//
-//     var text = new fabric.Text(options.title_text, {
-//         left: 100
-//         , top: title_size_from_top
-//         , fill: options.style.main_color
-//         , textAlign: 'center'
-//         , fontSize: title_text_size
-//         , fontWeight: 'bold'
-//         , fontFamily: options.style.font
-//     });
-//     canvas_fabric.add(text);
-//     canvas_fabric.centerObjectH(text);
-//
-//     if (options.style.dice_display == 'diamonds') {
-//         var items = draw_diamonds(options, card_width, card_height, height_mod);
-//         _.each(items, function (item) {
-//             canvas_fabric.add(item);
-//         })
-//     }
-//
-//     //--------------------------------------------
-//     //Small tile of total score in bottom right
-//     var tile_width, tile_height, tile_top, tile_top_text, tile_left, tile_left_text;
-//     tile_width = tile_height = parseInt(card_width * .15);
-//     var height_buffer = parseInt(card_height * .15);
-//
-//     var total_position = options.style.total;
-//     if (options.size == 'small' && options.style.total_small) {
-//         total_position = options.style.total_small;
-//     }
-//
-//     if (total_position == 'top middle') {
-//         tile_top = tile_height + border_outside_buffer + 20;
-//         tile_left = ((card_width - tile_width) / 2);
-//         tile_top_text = (tile_width * .4) + border_outside_buffer + height_buffer;
-//         tile_left_text = tile_left + (tile_width / 2);
-//     } else if (total_position == 'bottom right') {
-//         tile_top = card_height - (tile_height + border_outside_buffer + 20);
-//         tile_left = card_width - (tile_width * 2);
-//         tile_top_text = tile_top + (tile_width * .4);
-//         tile_left_text = tile_left + (tile_width / 2);
-//     } else if (total_position == 'center middle') {
-//         tile_top = ((card_height - tile_width) / 2);
-//         tile_left = ((card_width - tile_width) / 2);
-//         tile_top_text = tile_top + (tile_width * .4);
-//         tile_left_text = tile_left + (tile_width / 2);
-//     }
-//
-//     var rect_small = new fabric.Rect({
-//         width: tile_width
-//         , height: tile_height
-//         , left: tile_left
-//         , top: tile_top
-//         , rx: border_outside_buffer_round
-//         , ry: border_outside_buffer_round
-//         , strokeWidth: 4
-//         , stroke: options.style.main_color
-//     });
-//     canvas_fabric.add(rect_small);
-//
-//     if (options.num_text >= 0) options.num_text = "+" + options.num_text;
-//     var text_total = new fabric.Text(options.num_text, {
-//         left: tile_left_text
-//         , top: tile_top_text
-//         , fill: (options.num_text < 0) ? options.style.negative_color : options.style.main_color
-//         , originX: 'center', originY: 'center'
-//         , fontSize: (tile_width * .8)
-//         , fontWeight: 'bold'
-//         , fontFamily: options.style.font
-//     });
-//     canvas_fabric.add(text_total);
-//
-//     //--------------------------------------------
-//     if (show_text_on_bottom) {
-//         var text_story = new fabric.Textbox(options.story_text, {
-//             left: ((card_width) / 2)
-//             , top: card_height - border_outside_buffer - 30
-//             , originX: 'center', originY: 'bottom'
-//             , fontSize: 28
-//             , height: 200
-//             , textAlign: 'center'
-//             , width: card_width - (border_outside_buffer * 2) - 40
-//             , fontWeight: 'bold'
-//             //, stroke: 'black'
-//             , fill: options.style.main_color
-//             , fontFamily: options.style.font
-//
-//         });
-//         canvas_fabric.add(text_story);
-//     }
-//
-//     return canvas_fabric.createPNGStream();
-//
-// }
+function test_image_rendering(req, res) {
+
+  var stage = new Konva.Stage({
+    width:200,
+    height: 200
+  });
+  var layer = new Konva.Layer();
+  stage.add(layer);
+  var rect = new Konva.Rect({
+    width: 100,
+    height: 100,
+    x: 10,
+    y: 10,
+    fill: 'blue'
+  });
+  var text = new Konva.Text({
+    text: 'TESTED!',
+    x: 20,
+    y: 20,
+    fill: 'white'
+  });
+  layer.add(rect).add(text);
+  layer.draw();
+
+  stage.toDataURL({
+    callback: function(data) {
+      res.contentType('png');
+
+      var base64Data = data.replace(/^data:image\/png;base64,/, '');
+
+      var img = new Buffer(base64Data, 'base64');
+
+      res.writeHead(200, {
+       'Content-Type': 'image/png',
+       'Content-Length': img.length
+      });
+      res.end(img);
+
+    }
+  });
+}
 
 //-------------------------------------------
 function draw_border_rect(options) {
 
     //Build rounded rectangle around the border
-    return new fabric.Rect({
+    var rect = new Konva.Rect({
         width: options.w - (options.b * 2)
         , height: options.h - (options.b * 2)
         , rx: options.br
         , ry: options.br
-        , left: options.b
-        , top: options.b
-        , fill: 'rgba(0, 0, 0, 0)'
-        , strokeWidth: 4
+        , x: options.b
+        , y: options.b
+        , fill: options.fill || 'rgba(0, 0, 0, 0)'
+        , strokeWidth: options.strokeWidth || 4
         , stroke: options.color
     });
+
+    // Add the shape to a layer
+    var layer = new Konva.Layer();
+    layer.add(rect);
+    return layer;
 }
 
 //-------------------------------------------
@@ -463,134 +427,159 @@ function draw_diamonds(options, card_width, card_height, height_mod, layer) {
     var positive_color = value_parser(layer, 'positive_color', options);
     var negative_color = value_parser(layer, 'negative_color', options);
 
-    var diamond_1 = new fabric.Rect({
-        left: card_width / 2,
-        top: (card_height / 2) - 205 + height_mod,
-        fill: main_color,
-        width: 200,
-        height: 200,
-        angle: 45,
-        opacity: 0.9
-    });
-    var text_1 = new fabric.Text(options.dice_text[0], {
-        left: (card_width / 2) - 52 + (options.dice_text[0] == "-" ? 24 : 0)
-        , top: (card_height / 2) - 160 + height_mod
-        , fill: (options.dice_text[0] == "-") ? negative_color : positive_color
-        , textAlign: 'center'
-        , fontSize: 200
-        , fontWeight: 'bold'
-        , fontFamily: options.style.font
-    });
-    var keyword_1 = new fabric.Text(options.keywords[0], {
-        left: (card_width / 2) - 180
-        , top: (card_height / 2) - 90 + height_mod
-        , originX: 'center', originY: 'center'
-        , angle: -45
-        , fill: second_color
-        , fontSize: 80
-        , fontWeight: 'bold'
-        , fontFamily: options.style.font
-    });
-    canvas_items.push(diamond_1);
-    canvas_items.push(text_1);
-    canvas_items.push(keyword_1);
+    var font_size_symbols = card_width / 4.2;
+    var font_size_aspects = card_width / 16;
 
-    var diamond_2 = new fabric.Rect({
-        left: (card_width / 2) - 145,
-        top: (card_height / 2) - 60 + height_mod,
+    var show_keywords = false; //TODO: This is for testing now
+
+    var layer = new Konva.Layer();
+    var diamond_1 = new Konva.Rect({
+        x: card_width / 2,
+        y: (card_height / 2) - 205 + height_mod,
         fill: main_color,
         width: 200,
         height: 200,
-        angle: 45,
+        rotation: 45,
         opacity: 0.9
     });
-    var text_2 = new fabric.Text(options.dice_text[1], {
-        left: (card_width / 2) - 196 + (options.dice_text[1] == "-" ? 24 : 0)
-        , top: (card_height / 2) - 19 + height_mod
+    var text_1 = new Konva.Text({
+        text: options.dice_text[0]
+        , x: (card_width / 2) - 56 + (options.dice_text[0] === "-" ? 24 : 0)
+        , y: (card_height / 2) - 160 + height_mod
+        , fill: (options.dice_text[0] === "-") ? negative_color : positive_color
+        , textAlign: 'center'
+        , fontSize: font_size_symbols
+        , fontWeight: 'bold'
+        , fontFamily: options.style.font
+    });
+    var keyword_1 = new  Konva.Text({
+        text: options.keywords[0]
+        , x: (card_width / 2) - 180
+        , y: (card_height / 2) - 90 + height_mod
+        , originX: 'center', originY: 'center'
+        , rotation: -45
+        , fill: second_color
+        , fontSize: font_size_aspects
+        , fontWeight: 'bold'
+        , fontFamily: options.style.font
+        , backgroundColor: '#ccc'
+    });
+    var testrec1 = new  Konva.Rect({
+        x: (card_width / 2) - 180
+        , y: (card_height / 2) - 90 + height_mod
+        , width: 100
+        , height: 30
+        , rotation: -45
+        , fill: '#ccc'
+    });
+    layer.add(diamond_1);
+    // layer.add(testrec1);
+    layer.add(text_1);
+    if (show_keywords) layer.add(keyword_1);
+
+    var diamond_2 = new Konva.Rect({
+        x: (card_width / 2) - 145,
+        y: (card_height / 2) - 60 + height_mod,
+        fill: main_color,
+        width: 200,
+        height: 200,
+        rotation: 45,
+        opacity: 0.9
+    });
+    var text_2 = new Konva.Text({
+        text: options.dice_text[1]
+        , x: (card_width / 2) - 200 + (options.dice_text[1] == "-" ? 24 : 0)
+        , y: (card_height / 2) - 19 + height_mod
         , fill: (options.dice_text[1] == "-") ? negative_color : positive_color
         , textAlign: 'center'
-        , fontSize: 200
+        , fontSize: font_size_symbols
         , fontWeight: 'bold'
         , fontFamily: options.style.font
     });
-    var keyword_2 = new fabric.Text(options.keywords[1], {
-        left: (card_width / 2) + 180
-        , top: (card_height / 2) - 90 + height_mod
-        , angle: 45
+    var keyword_2 = new Konva.Text({
+        text: options.keywords[1]
+        , x: (card_width / 2) + 180
+        , y: (card_height / 2) - 90 + height_mod
+        , rotation: 45
         , originX: 'center', originY: 'center'
         , fill: second_color
-        , fontSize: 80
+        , fontSize: font_size_aspects
         , fontWeight: 'bold'
         , fontFamily: options.style.font
     });
-    canvas_items.push(diamond_2);
-    canvas_items.push(text_2);
-    canvas_items.push(keyword_2);
+    layer.add(diamond_2);
+    layer.add(text_2);
+    if (show_keywords) layer.add(keyword_2);
 
-    var diamond_3 = new fabric.Rect({
-        left: (card_width / 2) + 145,
-        top: (card_height / 2) - 60 + height_mod,
+    var diamond_3 = new Konva.Rect({
+        x: (card_width / 2) + 145,
+        y: (card_height / 2) - 60 + height_mod,
         fill: main_color,
         width: 200,
         height: 200,
-        angle: 45,
+        rotation: 45,
         opacity: 0.9
     });
-    var text_3 = new fabric.Text(options.dice_text[2], {
-        left: (card_width / 2) + 94 + (options.dice_text[2] == "-" ? 24 : 0)
-        , top: (card_height / 2) - 19 + height_mod
+    var text_3 = new Konva.Text({
+        text: options.dice_text[2]
+        , x: (card_width / 2) + 90 + (options.dice_text[2] == "-" ? 24 : 0)
+        , y: (card_height / 2) - 19 + height_mod
         , fill: (options.dice_text[2] == "-") ? negative_color : positive_color
         , textAlign: 'center'
-        , fontSize: 200
+        , fontSize: font_size_symbols
         , fontWeight: 'bold'
         , fontFamily: options.style.font
     });
-    var keyword_3 = new fabric.Text(options.keywords[2], {
-        left: (card_width / 2) + 170
-        , top: (card_height / 2) + 260 + height_mod
-        , angle: 135
+    var keyword_3 = new Konva.Text({
+        text: options.keywords[2]
+        , x: (card_width / 2) + 170
+        , y: (card_height / 2) + 260 + height_mod
+        , rotation: 135
         , originX: 'center', originY: 'center'
         , fill: second_color
-        , fontSize: 80
+        , fontSize: font_size_aspects
         , fontWeight: 'bold'
         , fontFamily: options.style.font
     });
-    canvas_items.push(diamond_3);
-    canvas_items.push(text_3);
-    canvas_items.push(keyword_3);
+    layer.add(diamond_3);
+    layer.add(text_3);
+    if (show_keywords) layer.add(keyword_3);
 
-    var diamond_4 = new fabric.Rect({
-        left: card_width / 2,
-        top: (card_height / 2) + 85 + height_mod,
+    var diamond_4 = new Konva.Rect({
+        x: card_width / 2,
+        y: (card_height / 2) + 85 + height_mod,
         fill: main_color,
         width: 200,
         height: 200,
-        angle: 45,
+        rotation: 45,
         opacity: 0.9
     });
-    var text_4 = new fabric.Text(options.dice_text[3], {
-        left: (card_width / 2) - 52 + (options.dice_text[3] == "-" ? 24 : 0)
-        , top: (card_height / 2) + 130 + height_mod
+    var text_4 = new Konva.Text({
+        text: options.dice_text[3]
+        , x: (card_width / 2) - 56 + (options.dice_text[3] == "-" ? 24 : 0)
+        , y: (card_height / 2) + 130 + height_mod
         , fill: (options.dice_text[3] == "-") ? negative_color : positive_color
         , textAlign: 'center'
-        , fontSize: 200
+        , fontSize: font_size_symbols
         , fontWeight: 'bold'
         , fontFamily: options.style.font
     });
-    var keyword_4 = new fabric.Text(options.keywords[3], {
-        left: (card_width / 2) - 170
-        , top: (card_height / 2) + 260 + height_mod
-        , angle: 225
+    var keyword_4 = new Konva.Text({
+        text: options.keywords[3]
+        , x: (card_width / 2) - 170
+        , y: (card_height / 2) + 260 + height_mod
+        , rotation: 225
         , originX: 'center', originY: 'center'
         , fill: second_color
-        , fontSize: 80
+        , fontSize: font_size_aspects
         , fontWeight: 'bold'
         , fontFamily: options.style.font
     });
-    canvas_items.push(diamond_4);
-    canvas_items.push(text_4);
-    canvas_items.push(keyword_4);
+    layer.add(diamond_4);
+    layer.add(text_4);
+    if (show_keywords) layer.add(keyword_4);
 
+    canvas_items.push(layer);
     return canvas_items;
 }
 
@@ -620,8 +609,8 @@ function pdf_renderer_piper(options, res){
     var width_pixels = 804;
     var height_pixels = 1024;
 
-    var num_x = options.size == 'big' ? 4 : 6;
-    var num_y = options.size == 'big' ? 5 : 7;
+    var num_x = options.size === 'big' ? 4 : 6;
+    var num_y = options.size === 'big' ? 5 : 7;
 
     var aspect =  big_card_width / big_card_height;
 
@@ -629,19 +618,24 @@ function pdf_renderer_piper(options, res){
     var width = Math.floor(aspect * height);
     var page_break = (num_y * num_x);
 
+    var bg_image = options.card_back_image;
+
     function page_bg(){
         doc
             .rect(0,0,width_pixels, height_pixels)
             .fill('black');
     }
 
-    function tiled_bg_images(){
+    function tiled_bg_images(url){
         //TODO: Shift pixels to the right
         for (var j=0; j<page_break; j++) {
             var x = (width * (j % num_x));
             var y = (height * Math.floor((j % page_break) / num_x));
-            var url = "./images/lov_green_gold_back.png";
-            doc.image(url, x, y, {fit: [width, height]});
+            try {
+                doc.image(url, x, y, {fit: [width, height]});
+            } catch (ex) {
+                console.err("Error building PDF", ex);
+            }
         }
     }
 
@@ -656,10 +650,10 @@ function pdf_renderer_piper(options, res){
         doc.image(url, x, y, {fit: [width, height]})
             .stroke();
 
-        if ((i % page_break) == (page_break-1)) {
+        if ((i % page_break) === (page_break-1)) {
             doc.addPage();
             page_bg();
-            tiled_bg_images();
+            tiled_bg_images(bg_image);
 
             doc.addPage();
             page_bg();
@@ -667,10 +661,10 @@ function pdf_renderer_piper(options, res){
             last_page_added = true;
         }
     }
-    if (last_page_added == false) {
+    if (last_page_added === false) {
         doc.addPage();
         page_bg();
-        tiled_bg_images();
+        tiled_bg_images(bg_image);
     }
 
     doc.end();
@@ -681,5 +675,6 @@ function pdf_renderer_piper(options, res){
 module.exports = {
     show_thumbnails: show_thumbnails,
     card_renderer_manager: card_renderer_manager,
+    test_image_rendering: test_image_rendering,
     pdf_renderer_piper: pdf_renderer_piper
 };

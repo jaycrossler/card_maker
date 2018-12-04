@@ -5,3 +5,15 @@ xcode-select --install
 npm install node-gyp -g
 brew install giflib cairo libjpeg giflib pixman
 npm install canvas
+
+### Install MongoDB to keep card settings
+
+brew install mongodb
+mkdir -p /data/db
+sudo chmod 0755 /data/db
+sudo chown $USER /data/db
+mongod  (in a term window)
+
+### Notes: Using Fabric or Kanva to render ###
+Fabric looks like a slightly better library, but is not working with node-canvas 2.0, so switched to Kanva instead.
+Fabric is supposed to work if using canvas@1.6.11 but I couldn't get anything to render, so removed it
