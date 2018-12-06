@@ -55,7 +55,7 @@ function card_renderer_manager(options) {
     //Determine card sizes
     //TODO: Allow h,w as user settings
     var card_width, card_height;
-    if (options.size == 'small') {
+    if (options.size === 'small') {
         card_width = small_card_width;
         card_height = small_card_height;
     } else {
@@ -70,16 +70,16 @@ function card_renderer_manager(options) {
       height: card_height
     });
 
-    //Add a background layer
-    var layer = new Konva.Layer();
-    stage.add(layer);
-    var rect = new Konva.Rect({
-      width: card_width,
-      height: card_height,
-      x: 0,
-      y: 0,
-      fill: options.style.bg_color || "black"
-    });
+    // //Add a background layer
+    // var layer = new Konva.Layer();
+    // stage.add(layer);
+    // var rect = new Konva.Rect({
+    //   width: card_width,
+    //   height: card_height,
+    //   x: 0,
+    //   y: 0,
+    //   fill: options.style.bg_color || "black"
+    // });
 
 
     //"Layer Router" to manage all layers and add them to stage
@@ -140,7 +140,7 @@ function build_card_pieces_from_layer(layer, options) {
 
     if (renderer === 'Background Image') {
         //---------------------------------------
-        pieces.push(image_as_layer(layer.src, card_width, card_height));
+        pieces.push(image_as_layer(options.style.background_src, card_width, card_height));
 
     } else if (renderer === 'Border') {
         //---------------------------------------
@@ -221,7 +221,7 @@ function build_card_pieces_from_layer(layer, options) {
     } else if (renderer === 'Number Diamonds') {
         //---------------------------------------
         //TODO: For some reason, the diamonds is making everything dark. Fix this
-        pieces = draw_diamonds(options, card_width, card_height, (card_height * layer.top), layer);
+        pieces = draw_diamonds(options, card_width, card_height, layer);
     } else if (renderer === 'Number In Box') {
         //---------------------------------------
         var tile_width, tile_height, tile_top, tile_left;
@@ -237,7 +237,7 @@ function build_card_pieces_from_layer(layer, options) {
             , y: tile_top
             // , originX: 'center', originY: 'center'
             , cornerRadius: (card_width * layer.rounded)
-            , cornerRadius: (card_width * layer.rounded)
+            , fill : layer.fill || value_parser(layer, 'fill_bg', options)
             , strokeWidth: layer.border || 2
             , stroke: value_parser(layer, 'color', options)
         });
@@ -263,6 +263,48 @@ function build_card_pieces_from_layer(layer, options) {
         layer_add.add(text_total);
         pieces.push(layer_add);
 
+    } else if (renderer === 'Number In Circle') {
+        //---------------------------------------
+        var tile_width, tile_height, tile_top, tile_left;
+        tile_width = parseInt(card_width * layer.scale);
+        tile_height = parseInt(card_width * layer.scale * .65);
+        tile_top = (card_height * layer.top);
+        tile_left = (card_width * layer.left) - (tile_width/2);
+
+        var rect_small = new Konva.Circle({
+            width: tile_width
+            , height: tile_height
+            , x: tile_left
+            , y: tile_top
+            , cornerRadius: (card_width * layer.rounded)
+            , strokeWidth: layer.border || 2
+            , fill : layer.fill ||value_parser(layer, 'fill_bg', options)
+            , stroke: value_parser(layer, 'color', options)
+        });
+
+        var layer_add_rect = new Konva.Layer();
+        layer_add_rect.add(rect_small);
+        pieces.push(layer_add_rect);
+
+        var num_text = value_parser(layer, 'value', options);
+        if (num_text >= 0) num_text = "+" + num_text;
+        var text_total = new Konva.Text({
+            text: num_text
+            , x: tile_left - (tile_width/2)
+            , y: tile_top - (tile_height/4)
+            , fill: (num_text < 0) ? value_parser(layer, 'negative_color', options) : value_parser(layer, 'color', options)
+            , width:tile_width
+            , height: tile_height
+            , fontSize: (tile_width * .35)
+            , align: 'center'
+
+            , fontWeight: 'bold'
+            , fontFamily: value_parser(layer, 'font', options)
+        });
+        var layer_add = new Konva.Layer();
+        layer_add.add(text_total);
+        pieces.push(layer_add);
+
 
     } else if (renderer === 'Paragraph') {
         //---------------------------------------
@@ -275,6 +317,7 @@ function build_card_pieces_from_layer(layer, options) {
             , align: 'center'
             , width: card_width - (border_outside_buffer * 2)
             , fontWeight: 'bold'
+            , fontStyle: layer.fontStyle
             , fill: value_parser(layer, 'main_color', options)
             , fontFamily: value_parser(layer, 'font', options)
 
@@ -283,7 +326,7 @@ function build_card_pieces_from_layer(layer, options) {
         layer_add.add(text_story);
         pieces.push(layer_add);
 
-    } else if (renderer == 'Text List') {
+    } else if (renderer === 'Text List') {
         //---------------------------------------
         var list_text = "";
         if (layer.title) list_text += layer.title + "\n";
@@ -332,6 +375,11 @@ function value_parser(layer, field, options) {
             result = options.style.negative_color;
         } else if (lookup_val === '{{second_color}}') {
             result = options.style.second_color;
+        } else if (lookup_val === '{{bg_color}}') {
+            result = options.style.bg_color;
+        } else if (lookup_val === '{{transparent}}') {
+            result = 'rgba(0,0,0,0)';
+
         } else if (lookup_val === '{{title}}') {
             result = options.title_text;
         } else if (lookup_val === '{{value}}') {
@@ -418,24 +466,55 @@ function draw_border_rect(options) {
 }
 
 //-------------------------------------------
-function draw_diamonds(options, card_width, card_height, height_mod, layer) {
+function draw_diamonds(options, card_width, card_height, layer_data) {
     var canvas_items = [];
 
     //TODO: Change all height and width and sizes to be dynamic
-    var main_color = value_parser(layer, 'main_color', options);
-    var second_color = value_parser(layer, 'second_color', options);
-    var positive_color = value_parser(layer, 'positive_color', options);
-    var negative_color = value_parser(layer, 'negative_color', options);
+    var main_color = value_parser(layer_data, 'main_color', options);
+    var second_color = value_parser(layer_data, 'second_color', options);
+    var positive_color = value_parser(layer_data, 'positive_color', options);
+    var negative_color = value_parser(layer_data, 'negative_color', options);
 
     var font_size_symbols = card_width / 4.2;
     var font_size_aspects = card_width / 16;
 
-    var show_keywords = false; //TODO: This is for testing now
+    var x = card_width / 2 + (card_width * layer_data.x || 0);
+    var y = (card_height / 2) + (card_width * layer_data.y || 0);
 
     var layer = new Konva.Layer();
+    if (layer_data.scale) {
+        layer.scale({x: layer_data.scale, y:layer_data.scale});
+        x = x / layer_data.scale;
+        y = y / layer_data.scale;
+    }
+
+    var font_family = layer_data.font || options.style.font;
+
+    add_diamond_symbol(layer, x, y, 0,
+        main_color, second_color, negative_color, positive_color,
+        options.dice_text[0], font_family, font_size_symbols, font_size_aspects); //, options.keywords[0]
+    add_diamond_symbol(layer, x-145, y+145, 1,
+        main_color, second_color, negative_color, positive_color,
+        options.dice_text[1], font_family, font_size_symbols, font_size_aspects);
+    add_diamond_symbol(layer, x+145, y+145, 2,
+        main_color, second_color, negative_color, positive_color,
+        options.dice_text[2], font_family, font_size_symbols, font_size_aspects);
+    add_diamond_symbol(layer, x, y+290, 3,
+        main_color, second_color, negative_color, positive_color,
+        options.dice_text[3], font_family, font_size_symbols, font_size_aspects);
+
+
+    canvas_items.push(layer);
+    return canvas_items;
+}
+
+function add_diamond_symbol(layer, x, y, aspect_rotation, main_color, second_color, negative_color, positive_color, text, font_family, font_size_symbols, font_size_aspects, keyword_text) {
+
+    var is_negative = text === "-";
+
     var diamond_1 = new Konva.Rect({
-        x: card_width / 2,
-        y: (card_height / 2) - 205 + height_mod,
+        x: x,
+        y: y - 205,
         fill: main_color,
         width: 200,
         height: 200,
@@ -443,144 +522,56 @@ function draw_diamonds(options, card_width, card_height, height_mod, layer) {
         opacity: 0.9
     });
     var text_1 = new Konva.Text({
-        text: options.dice_text[0]
-        , x: (card_width / 2) - 56 + (options.dice_text[0] === "-" ? 24 : 0)
-        , y: (card_height / 2) - 160 + height_mod
-        , fill: (options.dice_text[0] === "-") ? negative_color : positive_color
+        text: text
+        , x: x - 56 + (is_negative ? 24 : 0)
+        , y: y - 160
+        , fill: is_negative ? negative_color : positive_color
         , textAlign: 'center'
         , fontSize: font_size_symbols
         , fontWeight: 'bold'
-        , fontFamily: options.style.font
+        , fontFamily: font_family
     });
-    var keyword_1 = new  Konva.Text({
-        text: options.keywords[0]
-        , x: (card_width / 2) - 180
-        , y: (card_height / 2) - 90 + height_mod
-        , originX: 'center', originY: 'center'
-        , rotation: -45
-        , fill: second_color
-        , fontSize: font_size_aspects
-        , fontWeight: 'bold'
-        , fontFamily: options.style.font
-        , backgroundColor: '#ccc'
-    });
-    var testrec1 = new  Konva.Rect({
-        x: (card_width / 2) - 180
-        , y: (card_height / 2) - 90 + height_mod
-        , width: 100
-        , height: 30
-        , rotation: -45
-        , fill: '#ccc'
-    });
+
     layer.add(diamond_1);
-    // layer.add(testrec1);
     layer.add(text_1);
-    if (show_keywords) layer.add(keyword_1);
 
-    var diamond_2 = new Konva.Rect({
-        x: (card_width / 2) - 145,
-        y: (card_height / 2) - 60 + height_mod,
-        fill: main_color,
-        width: 200,
-        height: 200,
-        rotation: 45,
-        opacity: 0.9
-    });
-    var text_2 = new Konva.Text({
-        text: options.dice_text[1]
-        , x: (card_width / 2) - 200 + (options.dice_text[1] == "-" ? 24 : 0)
-        , y: (card_height / 2) - 19 + height_mod
-        , fill: (options.dice_text[1] == "-") ? negative_color : positive_color
-        , textAlign: 'center'
-        , fontSize: font_size_symbols
-        , fontWeight: 'bold'
-        , fontFamily: options.style.font
-    });
-    var keyword_2 = new Konva.Text({
-        text: options.keywords[1]
-        , x: (card_width / 2) + 180
-        , y: (card_height / 2) - 90 + height_mod
-        , rotation: 45
-        , originX: 'center', originY: 'center'
-        , fill: second_color
-        , fontSize: font_size_aspects
-        , fontWeight: 'bold'
-        , fontFamily: options.style.font
-    });
-    layer.add(diamond_2);
-    layer.add(text_2);
-    if (show_keywords) layer.add(keyword_2);
+    //Rewrite all of this
+    // if (keyword_text) {
+    //     var aspect_rotation_angle, aspect_x, aspect_y;
+    //
+    //     if (aspect_rotation===0){
+    //         aspect_rotation_angle = -45
+    //         aspect_x = x+180;
+    //         aspect_y = y-90;
+    //     } else if (aspect_rotation===1){
+    //         aspect_rotation_angle = 45
+    //         aspect_x = x+180;
+    //         aspect_y = y-90;
+    //     } else if (aspect_rotation===2){
+    //         aspect_rotation_angle = 135
+    //         aspect_x = x+170;
+    //         aspect_y = y+260;
+    //     } else if (aspect_rotation===3){
+    //         aspect_rotation_angle = 225
+    //         aspect_x = x-170;
+    //         aspect_y = y+260;
+    //     }
+    //
+    //     var keyword_1 = new Konva.Text({
+    //         text: keyword_text
+    //         , x: aspect_x
+    //         , y: aspect_y
+    //         , originX: 'center', originY: 'center' //TODO: Rework placement
+    //         , rotation: aspect_rotation_angle
+    //         , fill: second_color
+    //         , fontSize: font_size_aspects
+    //         , fontWeight: 'bold'
+    //         , fontFamily: font_family
+    //         , backgroundColor: '#ccc'
+    //     });
+    //     layer.add(keyword_1);
+    // }
 
-    var diamond_3 = new Konva.Rect({
-        x: (card_width / 2) + 145,
-        y: (card_height / 2) - 60 + height_mod,
-        fill: main_color,
-        width: 200,
-        height: 200,
-        rotation: 45,
-        opacity: 0.9
-    });
-    var text_3 = new Konva.Text({
-        text: options.dice_text[2]
-        , x: (card_width / 2) + 90 + (options.dice_text[2] == "-" ? 24 : 0)
-        , y: (card_height / 2) - 19 + height_mod
-        , fill: (options.dice_text[2] == "-") ? negative_color : positive_color
-        , textAlign: 'center'
-        , fontSize: font_size_symbols
-        , fontWeight: 'bold'
-        , fontFamily: options.style.font
-    });
-    var keyword_3 = new Konva.Text({
-        text: options.keywords[2]
-        , x: (card_width / 2) + 170
-        , y: (card_height / 2) + 260 + height_mod
-        , rotation: 135
-        , originX: 'center', originY: 'center'
-        , fill: second_color
-        , fontSize: font_size_aspects
-        , fontWeight: 'bold'
-        , fontFamily: options.style.font
-    });
-    layer.add(diamond_3);
-    layer.add(text_3);
-    if (show_keywords) layer.add(keyword_3);
-
-    var diamond_4 = new Konva.Rect({
-        x: card_width / 2,
-        y: (card_height / 2) + 85 + height_mod,
-        fill: main_color,
-        width: 200,
-        height: 200,
-        rotation: 45,
-        opacity: 0.9
-    });
-    var text_4 = new Konva.Text({
-        text: options.dice_text[3]
-        , x: (card_width / 2) - 56 + (options.dice_text[3] == "-" ? 24 : 0)
-        , y: (card_height / 2) + 130 + height_mod
-        , fill: (options.dice_text[3] == "-") ? negative_color : positive_color
-        , textAlign: 'center'
-        , fontSize: font_size_symbols
-        , fontWeight: 'bold'
-        , fontFamily: options.style.font
-    });
-    var keyword_4 = new Konva.Text({
-        text: options.keywords[3]
-        , x: (card_width / 2) - 170
-        , y: (card_height / 2) + 260 + height_mod
-        , rotation: 225
-        , originX: 'center', originY: 'center'
-        , fill: second_color
-        , fontSize: font_size_aspects
-        , fontWeight: 'bold'
-        , fontFamily: options.style.font
-    });
-    layer.add(diamond_4);
-    layer.add(text_4);
-    if (show_keywords) layer.add(keyword_4);
-
-    canvas_items.push(layer);
-    return canvas_items;
 }
 
 function pdf_renderer_piper(options, res){

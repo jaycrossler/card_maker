@@ -2,7 +2,11 @@ var _ = require('underscore')
     , Konva = require('konva-node');
 
 
-var images_to_preload_into_memory = ['images/blue_hex_bg.png', 'images/red_hex_bg.png', 'images/blue_hex_bg2.png', 'images/red_hex_bg2.png', 'images/silhouette-of-an-unknown-soldier.png'];
+var images_to_preload_into_memory = ['images/blue_hex_bg.png', 'images/red_hex_bg.png',
+    'images/blue_hex_bg2.png', 'images/red_hex_bg2.png',
+    'images/silhouette-of-an-unknown-soldier.png', 'images/card_white_shield1.png',
+    'images/card_white_shield2.png', 'images/card_white_shield3.png',
+    'images/card_with_shield3.png', 'images/card_with_shield3_symbol.png'];
 var layer_defaults = [
     {renderer: 'Background Image', src:'blue_hex_bg'}
     ,{renderer: 'Border', padding: .03, rounded: .02, color: '{{main_color}}'}
@@ -10,16 +14,17 @@ var layer_defaults = [
     ,{renderer: 'Horizontal Line', padding: .03, top: .16, width: .005, color:'{{main_color}}'}
     ,{renderer: 'Paragraph', top: .18,  scale: .035, box_height: .16, value:'{{story}}', color:'{{main_color}}'}
     ,{renderer: 'Number Diamonds', top: -.05, values: '{{dice}}', outside_text:'{{keywords}}'}
-    ,{renderer: 'Number In Box', scale: .19, top: .23, left:.82, text_left: -.008, text_top: .008, value:'{{value}}', color:'{{main_color}}', rounded: 0, font:'Impact'}
+    ,{renderer: 'Number In Box', scale: .19, top: .23, left:.82, text_left: -.008, text_top: .008, value:'{{value}}', color:'{{main_color}}', rounded: 0, font:'Impact', fill_bg:'{{transparent}}'}
+    ,{renderer: 'Number In Circle', scale: .2, top: 0.05, left:0.2, border:10, value:'{{value}}', color:'{{main_color}}', fill_bg:'{{bg_color}}', rounded: 0, font:'Impact'}
     // ,{renderer: 'Text List', top: .52, left:.5, scale: 0.09, box_height: .2, values:'{{keywords}}', color:'{{second_color}}', title:''}
 ];
 var default_card_style = {
     bg_image: 0, bg_color: 'green', card_back_image: './images/silhouette-of-an-unknown-soldier.png',
-    main_color: 'yellow', second_color: 'white', font: 'Impact',
+    main_color: 'yellow', second_color: 'white', font: 'Impact', background_src:'images/blue_hex_bg',
     negative_color: 'red', positive_color: 'black',
     deck_type: 'Fate 81', content_type: ' Aeon Paul',
     layers_big: [
-        {renderer: 'Background Image', src:'blue_hex_bg'}
+        {renderer: 'Background Image'}
         ,{renderer: 'Border'}
         ,{renderer: 'Card Top Title'}
         ,{renderer: 'Horizontal Line'}
@@ -52,7 +57,19 @@ var card_styles = [
 
     , {id: 3, name: 'Swords and Suckers', bg_image: 3, main_color: 'gray', second_color: 'orange' }
 
-    , {id: 4, name: 'Ye Olde Horror Shacke', bg_image: 2, main_color: 'green', }
+    , {id: 4, name: 'Ye Olde Horror Shacke', bg_image: 2, main_color: 'green' }
+
+    , {id: 5, name: 'Limits of Virtue', bg_image: 5, bg_color: 'white', main_color: 'gray', second_color: 'orange',
+        negative_color: 'red', positive_color: 'yellow', background_src:'card_with_shield3_symbol',
+        layers_big: [
+            {renderer: 'Background Image'}
+            ,{renderer: 'Card Top Title', top: .07, size: .09}
+            ,{renderer: 'Horizontal Line', padding: .04, top: .17, width: .005}
+            ,{renderer: 'Paragraph', top: .17, scale: .03, fontStyle: 'italic'}
+            ,{renderer: 'Number Diamonds', y: .42, x: .3, scale:.4}
+            ,{renderer: 'Number In Circle'}
+        ]
+    }
 
     // , {id: 5, name: 'Build your own decks!', bg_image: 0}
 ];
@@ -88,7 +105,7 @@ function preload_images() {
 
 function image_cached_by_src(src) {
     var img = _.find(images_cached_in_memory, function(img_info){ return (img_info.src.indexOf(src) > -1)});
-    return img.image ? img.image : "";
+    return (img && img.image) ? img.image : {};
 }
 
 function style_data_from_id (id) {
