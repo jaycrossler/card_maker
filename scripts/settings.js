@@ -6,9 +6,11 @@ var images_to_preload_into_memory = ['images/blue_hex_bg.png', 'images/red_hex_b
     'images/blue_hex_bg2.png', 'images/red_hex_bg2.png',
     'images/silhouette-of-an-unknown-soldier.png', 'images/card_white_shield1.png',
     'images/card_white_shield2.png', 'images/card_white_shield3.png',
-    'images/card_with_shield3.png', 'images/card_with_shield3_symbol.png'];
+    'images/card_with_shield3.png', 'images/card_with_shield3_alpha.png',
+    'images/card_with_shield3_symbol.png', 'images/symbol_triangle.png'];
 var layer_defaults = [
     {renderer: 'Background Image', src:'blue_hex_bg'}
+    ,{renderer: 'Image', src:'symbol_triangle'}
     ,{renderer: 'Border', padding: .03, rounded: .02, color: '{{main_color}}'}
     ,{renderer: 'Card Top Title', font: 'Impact', top: .05, size: .1, color: '{{main_color}}', value: '{{title}}'}//, border:2, cornerRadius:10, backgroundColor:'gray'
     ,{renderer: 'Horizontal Line', padding: .03, top: .16, width: .005, color:'{{main_color}}'}
@@ -60,9 +62,10 @@ var card_styles = [
     , {id: 4, name: 'Ye Olde Horror Shacke', bg_image: 2, main_color: 'green' }
 
     , {id: 5, name: 'Limits of Virtue', bg_image: 5, bg_color: 'white', main_color: 'gray', second_color: 'orange',
-        negative_color: 'red', positive_color: 'yellow', background_src:'card_with_shield3_symbol',
+        negative_color: 'red', positive_color: 'yellow', background_src:'card_with_shield3_alpha',
         layers_big: [
             {renderer: 'Background Image'}
+            ,{renderer: 'Image', width: .8, height: .4, x: .1, y: .22, opacity: .6, src:'symbol_triangle'}
             ,{renderer: 'Card Top Title', top: .07, size: .09}
             ,{renderer: 'Horizontal Line', padding: .04, top: .17, width: .005}
             ,{renderer: 'Paragraph', top: .17, scale: .03, fontStyle: 'italic'}
@@ -89,13 +92,8 @@ function preload_images() {
     _.each(images_to_preload_into_memory, function (src, id) {
         var image = new Konva.window.Image();
         image.onload = function() {
-            var k_image = new Konva.Image({
-                x: 0,
-                y: 0,
-                image: image
-            });
-            images_cached_in_memory.push({id:id, src:src, image:k_image});
-            console.log("Loaded BG Image " + id + ': ' + src);
+            images_cached_in_memory.push({id:id, src:src, image:image});
+            console.log("Loaded Image into memory #" + id + ': ' + src);
         };
         image.src = src;
 

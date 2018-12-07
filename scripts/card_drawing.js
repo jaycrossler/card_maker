@@ -70,16 +70,17 @@ function card_renderer_manager(options) {
       height: card_height
     });
 
-    // //Add a background layer
-    // var layer = new Konva.Layer();
-    // stage.add(layer);
-    // var rect = new Konva.Rect({
-    //   width: card_width,
-    //   height: card_height,
-    //   x: 0,
-    //   y: 0,
-    //   fill: options.style.bg_color || "black"
-    // });
+    //Add a background color layer in case bg is transparent
+    var bg = new Konva.Rect({
+        x: 0
+        , y: 0
+        , width: card_width
+        , height: card_height
+        , fill: options.style.bg_color
+    });
+    var layer_add_rect = new Konva.Layer();
+    layer_add_rect.add(bg);
+    stage.add(layer_add_rect);
 
 
     //"Layer Router" to manage all layers and add them to stage
@@ -96,19 +97,24 @@ function card_renderer_manager(options) {
     return stage;
 }
 
-function image_as_layer(path, card_width, card_height) {
+function image_as_layer(path, width, height, x, y, opacity) {
     var layer = new Konva.Layer();
 
     var imageCached = settings.image_cached_by_src(path);
-    imageCached.width = card_width;
-    imageCached.height = card_height;
-    layer.add(imageCached);
+    var k_image = new Konva.Image({
+        x: x,
+        y: y,
+        height: height,
+        width: width,
+        opacity: opacity,
+        image: imageCached
+    });
+    layer.add(k_image);
     return layer;
-
 }
 
 function extend_layer_from_defaults(layer) {
-    var layer_defaults = _.find(settings.layer_defaults, function (layer_d){return layer_d.renderer == layer.renderer });
+    var layer_defaults = _.find(settings.layer_defaults, function (layer_d){return layer_d.renderer === layer.renderer });
     if (layer_defaults && layer_defaults.renderer) {
         layer = _.extend({}, layer_defaults, layer);
     } else {
@@ -141,6 +147,12 @@ function build_card_pieces_from_layer(layer, options) {
     if (renderer === 'Background Image') {
         //---------------------------------------
         pieces.push(image_as_layer(options.style.background_src, card_width, card_height));
+
+    } else if (renderer === 'Image') {
+        //---------------------------------------
+        pieces.push(image_as_layer(layer.src,
+            (layer.width || 1) * card_width, (layer.height || 1) * card_height,
+            (layer.x || 0) * card_width, (layer.y || 0) * card_height, layer.opacity));
 
     } else if (renderer === 'Border') {
         //---------------------------------------
@@ -511,6 +523,9 @@ function draw_diamonds(options, card_width, card_height, layer_data) {
 function add_diamond_symbol(layer, x, y, aspect_rotation, main_color, second_color, negative_color, positive_color, text, font_family, font_size_symbols, font_size_aspects, keyword_text) {
 
     var is_negative = text === "-";
+    var is_zero = text === "0";
+
+    var text_color = is_negative ? negative_color : is_zero ? second_color : positive_color;
 
     var diamond_1 = new Konva.Rect({
         x: x,
@@ -524,8 +539,8 @@ function add_diamond_symbol(layer, x, y, aspect_rotation, main_color, second_col
     var text_1 = new Konva.Text({
         text: text
         , x: x - 56 + (is_negative ? 24 : 0)
-        , y: y - 160
-        , fill: is_negative ? negative_color : positive_color
+        , y: y - (is_zero ? 152 : 160)
+        , fill: text_color
         , textAlign: 'center'
         , fontSize: font_size_symbols
         , fontWeight: 'bold'

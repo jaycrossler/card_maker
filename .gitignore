@@ -16,3 +16,5 @@ node_modules/*
 
 images/cards/*.png
 images/pdfs/*.pdf
+
+package-lock.json
