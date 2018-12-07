@@ -33,13 +33,13 @@ function show_thumbnails(options) {
     html += '.card_big {border:1px solid lightblue; margin:4px;width:' + image_w_big + 'px;height:' + image_h_big + 'px;}';
     html += '.card_small {border:1px solid lightblue; margin:4px;width:' + image_w_small + 'px;height:' + image_h_small + 'px;}</style>';
     for (card_id = 0; card_id < card_count; card_id += skip_count) {
-        url = '/card/big/' + style + '/' + Math.floor(card_id);
-        html += '<a href="' + url + '"><img class="card_big" src="' + url + '"/></a>';
+        url = '/card/big/' + style + '/' + Math.floor(card_id) + '?force=true';
+        html += '<a href="' + url + '"><img alt="Generated Card" class="card_big" src="' + url + '"/></a>';
     }
     html += "<br/>";
     for (card_id = 0; card_id < card_count; card_id += skip_count) {
-        url = '/card/small/' + style + '/' + Math.floor(card_id);
-        html += '<a href="' + url + '"><img class="card_small" src="' + url + '"/></a>';
+        url = '/card/small/' + style + '/' + Math.floor(card_id) + '?force=true';
+        html += '<a href="' + url + '"><img alt="Generated Card" class="card_small" src="' + url + '"/></a>';
     }
 
     return html;
@@ -142,7 +142,6 @@ function build_card_pieces_from_layer(layer, options) {
     }
     layer.padding = layer.padding || .03;
     border_outside_buffer = (card_width * layer.padding);
-
 
     if (renderer === 'Background Image') {
         //---------------------------------------

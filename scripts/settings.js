@@ -65,7 +65,7 @@ var card_styles = [
         negative_color: 'red', positive_color: 'yellow', background_src:'card_with_shield3_alpha',
         layers_big: [
             {renderer: 'Background Image'}
-            ,{renderer: 'Image', width: .8, height: .4, x: .1, y: .22, opacity: .6, src:'symbol_triangle'}
+            ,{renderer: 'Image', width: .6, height: .35, x: .2, y: .22, opacity: .5, src:'symbol_triangle'}
             ,{renderer: 'Card Top Title', top: .07, size: .09}
             ,{renderer: 'Horizontal Line', padding: .04, top: .17, width: .005}
             ,{renderer: 'Paragraph', top: .17, scale: .03, fontStyle: 'italic'}
@@ -108,7 +108,7 @@ function image_cached_by_src(src) {
 
 function style_data_from_id (id) {
     return _.find(card_styles, function (style) {
-        return style.id == id
+        return style.id === id
     });
 }
 
